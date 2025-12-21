@@ -1,0 +1,70 @@
+services:
+  create_tables:
+    container_name: create_tables
+    tty: true
+    working_dir: /apps/create_tables
+    build:
+      context: ../
+      dockerfile: apps/create_tables/Dockerfile
+    env_file:
+      - path: .env
+        required: true
+    environment:
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_USERNAME=${DB_USERNAME}
+      - POSTGRES_PORT=${POSTGRES_PORT}
+    depends_on:
+      database:
+        condition: service_healthy
+    command: python3 create_tables.py
+
+  cloudflared:
+    working_dir: /apps/cloudflared
+    build:
+      context: ../
+      dockerfile: apps/cloudflared/Dockerfile
+    container_name: cloudflared
+    environment:
+      TZ: America/Toronto
+      TUNNEL_TOKEN_FILE: /run/secrets/wywywebsite-cache-cloudflared-cloudflare
+    entrypoint: /entrypoint.sh
+    restart: unless-stopped
+    secrets:
+      - wywywebsite-cache-cloudflared-cloudflare
+    networks:
+      - cloudflared
+
+  # @TODO secrets for db authentication
+  database:
+    container_name: postgres
+    image: postgres
+    working_dir: /apps/postgres
+    restart: always
+    env_file:
+      - .env
+    environment:
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_USER: ${DB_USERNAME}
+    ports:
+      - ${POSTGRES_PORT}:${POSTGRES_PORT}
+    healthcheck:
+      test: [ "CMD", "pg_isready", "-U", "${DB_USERNAME}", "-p", "${POSTGRES_PORT}" ]
+      interval: 5m
+      timeout: 5s
+      start_period: 3s
+      retries: 10
+    volumes:
+      # - postgres-db:/var/lib/postgresql
+      - ./../apps/postgres:/var/lib/postgresql
+    shm_size: 128mb
+    command: -p ${POSTGRES_PORT}
+
+networks:
+  cloudflared:
+    name: cloudflared
+
+secrets:
+  wywywebsite-cache-cloudflared-cloudflare:
+    file: ./../secrets/cloudflared-cloudflare-token.txt
+  admin:
+    file: ./../secrets/admin.txt
