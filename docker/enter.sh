@@ -9,16 +9,17 @@ fi
 case "$1" in
   sync)
     sudo docker run -it --rm \
-    -p 2325:2325 \
-    --env-file .env \
-    docker-sync /bin/sh
-    ;;
-  recv)
-    sudo docker run -it --rm \
     -p 2523:2523 \
     --env-file .env \
     --mount type=bind,source="$(pwd)/../secrets/admin.txt",target=/run/secrets/admin,readonly \
-    docker-recv /bin/sh
+    docker-sync /bin/sh
+    ;;
+  mod)
+    sudo docker run -it --rm \
+    -p 2325:2325 \
+    --env-file .env \
+    --mount type=bind,source="$(pwd)/../secrets/admin.txt",target=/run/secrets/admin,readonly \
+    docker-mod /bin/sh
     ;;
   pgres)
     sudo docker run -it --rm -p 5432:5432 -v "postgres-db:/var/lib/postgresql" docker-postgres /bin/sh
