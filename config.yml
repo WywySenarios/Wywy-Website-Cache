@@ -1,6 +1,7 @@
 referenceUrls:
-  main: http://localhost:4321
-  db: http://localhost:2523
+  main: https://ericzhu.me
+  db: https://db.ericzhu.me
+  cache: https://cache.ericzhu.me
 
 # UNUSED SO FAR:
 # The location of python that you wish to run.
