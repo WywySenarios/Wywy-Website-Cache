@@ -88,7 +88,7 @@ def add_info_table() -> None:
     # create the info table
     with psycopg2.connect(**psycopg2config) as conn:
         with conn.cursor() as cur:
-            cur.execute("SELECT EXISTS (SELECT FROM pg_tables WHERE tablename = 'sync');")
+            cur.execute("SELECT EXISTS (SELECT FROM pg_tables WHERE tablename = 'sync_status');")
             tableExists = cur.fetchone()[0]
             
             if not tableExists:
