@@ -18,6 +18,26 @@ services:
         condition: service_healthy
     command: python3 create_tables.py
 
+  sync:
+    container_name: sync
+    tty: true
+    working_dir: /apps/sync
+    build:
+      context: ../
+      dockerfile: apps/sync/Dockerfile
+    env_file:
+      - path: .env
+        required: true
+    environment:
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+      - POSTGRES_USER=${DB_USERNAME}
+      - POSTGRES_PORT=${POSTGRES_PORT}
+    ports:
+      - 8000:8000
+    depends_on:
+      database:
+        condition: service_healthy
+
   # @TODO secrets for db authentication
   database:
     container_name: postgres
