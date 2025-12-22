@@ -76,7 +76,7 @@ WSGI_APPLICATION = 'sync.wsgi.application'
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.postgresql",
-        "NAME": "main",
+        "NAME": "wywywebsite",
         "USER": os.environ.get("POSTGRES_USER", "postgres"),
         "PASSWORD": os.environ.get("POSTGRES_PASSWORD", "password"),
         "HOST": "postgres",
