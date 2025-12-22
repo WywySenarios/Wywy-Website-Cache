@@ -11,7 +11,7 @@ case "$1" in
         sudo docker compose -f docker-compose.prod.yml up
         ;;
     dev)
-        sudo docker compose -f docker-compose.dev.yml up --watch
+        sudo docker compose -f docker-compose.dev.yml up
         ;;
     *)
         echo "Error: Invalid argument '$1'. Expected 'prod' or 'dev'"
