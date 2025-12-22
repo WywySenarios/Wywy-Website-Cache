@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 """
 
 from pathlib import Path
+import os
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -73,9 +74,27 @@ WSGI_APPLICATION = 'sync.wsgi.application'
 # https://docs.djangoproject.com/en/6.0/ref/settings/#databases
 
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+    "default": {
+        "ENGINE": "django.db.backends.postgresql",
+        "NAME": "main",
+        "USER": os.environ.get("POSTGRES_USER", "postgres"),
+        "PASSWRD": os.environ.get("POSTGRES_PASSWORD", "password"),
+        "HOST": "postgres",
+        "PORT": os.environ.get("POSTGRES_PORT", "5433"),
+        "OPTIONS": {
+            "connect_timeout": 5,
+        },
+    },
+    "info": {
+        "ENGINE": "django.db.backends.postgresql",
+        "NAME": "info",
+        "USER": os.environ.get("POSTGRES_USER", "postgres"),
+        "PASSWRD": os.environ.get("POSTGRES_PASSWORD", "password"),
+        "HOST": "postgres",
+        "PORT": os.environ.get("POSTGRES_PORT", "5433"),
+        "OPTIONS": {
+            "connect_timeout": 5,
+        },
     }
 }
 
