@@ -102,7 +102,8 @@ def add_info_table() -> None:
                                 'already exists',
                                 'added',
                                 'mismatch',
-                                'failed'
+                                'failed',
+                                'updated
                             );
                         END IF;
                     END
