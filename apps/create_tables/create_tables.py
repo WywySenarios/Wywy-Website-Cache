@@ -8,20 +8,6 @@ import re
 import psycopg2
 import yaml
 
-def to_snake_case(target: str) -> str:
-    """Attempts to convert from regular words/sentences to snake_case. This will not affect strings already in underscore notation. (Does not work with camelCase)
-    @param target
-    @return Returns underscore notation string. e.g. "hi I am Wywy" -> "hi_I_am_Wywy"
-    """
-    stringFrags: List[str] = re.split(r"[\.\ \-]", target)
-    
-    output: str = ""
-    
-    for i in stringFrags:
-        output += i + "_"
-    
-    return output[:-1] # remove trailing underscore with "[:-1]"
-
 BASE_URL = "database"
 
 # Constants
@@ -80,6 +66,55 @@ def to_lower_snake_case(target: str) -> str:
         output += i.lower() + "_"
     
     return output[:-1] # remove trailing underscore with "[:-1]"
+
+def add_info_table() -> None:
+    conn = psycopg2.connect(**psycopg2config)
+    conn.set_isolation_level(psycopg2.extensions.ISOLATION_LEVEL_AUTOCOMMIT)
+    
+    # create info db if necessary
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT EXISTS (SELECT FROM pg_database WHERE datname = %s);", ("info",))
+            dbExists = cur.fetchone()[0]
+            
+            if not dbExists:
+                try:
+                    cur.execute("CREATE DATABASE info;")
+                except psycopg2.errors.DuplicateDatabase:
+                    pass
+    finally:
+        conn.close()
+    
+    # create the info table
+    with psycopg2.connect(**psycopg2config) as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT EXISTS (SELECT FROM pg_tables WHERE tablename = 'sync');")
+            tableExists = cur.fetchone()[0]
+            
+            if not tableExists:
+                cur.execute("""
+                    DO $$
+                    BEGIN
+                        IF NOT EXISTS (
+                            SELECT 1 FROM pg_type WHERE typname = 'sync_status_enum'
+                        ) THEN
+                            CREATE TYPE sync_status_enum AS ENUM (
+                                'already exists',
+                                'added',
+                                'mismatch',
+                                'failed'
+                            );
+                        END IF;
+                    END
+                    $$;
+
+                    CREATE TABLE sync_status (
+                        id BIGSERIAL PRIMARY KEY,
+                        table_name TEXT NOT NULL,
+                        sync_timestamp TIMESTAMPTZ NULL,
+                        status sync_status_enum NULL
+                    );
+                """)
 
 if __name__ == "__main__":
     print("Attempting to create tables based on config.yml...")
@@ -202,4 +237,5 @@ if __name__ == "__main__":
                     cur.execute(currentCommand)
                     # print(currentCommand)
     
+    add_info_table()
     print("Finished creating tables.")
