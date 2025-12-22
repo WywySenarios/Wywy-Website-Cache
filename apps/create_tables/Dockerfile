@@ -2,7 +2,7 @@ FROM python:3.14.0-slim-bookworm
 WORKDIR /apps/create_tables
 
 COPY ./apps/create_tables .
-COPY ./config.yml /
+COPY ./config.yml .
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \

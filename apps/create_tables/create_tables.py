@@ -50,7 +50,7 @@ psycopg2config: dict = {
 }
 
 # peak at config
-with open("../../config.yml", "r") as file:
+with open("config.yml", "r") as file:
     config = yaml.safe_load(file)
 
 def to_snake_case(target: str) -> str:
