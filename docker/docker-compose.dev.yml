@@ -34,7 +34,7 @@ services:
       - POSTGRES_PORT=${POSTGRES_PORT}
     develop:
       watch:
-        - action: sync+restart
+        - action: sync
           path: ./../apps/sync
           target: ./apps/sync
           initial_sync: true
