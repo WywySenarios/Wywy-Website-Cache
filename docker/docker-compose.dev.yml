@@ -38,6 +38,8 @@ services:
           path: ./../apps/sync
           target: ./apps/sync
           initial_sync: true
+    secrets:
+      - admin
     ports:
       - 8000:8000
     depends_on:
