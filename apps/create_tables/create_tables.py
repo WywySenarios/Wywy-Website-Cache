@@ -86,12 +86,14 @@ def add_info_table() -> None:
         conn.close()
     
     # create the info table
-    with psycopg2.connect(**psycopg2config) as conn:
+    with psycopg2.connect(host=BASE_URL, port=env["POSTGRES_PORT"], user=env["DB_USERNAME"], password=env["DB_PASSWORD"], dbname="info") as conn:
         with conn.cursor() as cur:
             cur.execute("SELECT EXISTS (SELECT FROM pg_tables WHERE tablename = 'sync_status');")
             tableExists = cur.fetchone()[0]
             
-            if not tableExists:
+            if tableExists:
+                print("Table \"sync_status\" already exists in database \"info\"; skipping creation.")
+            else:
                 cur.execute("""
                     DO $$
                     BEGIN
@@ -103,7 +105,7 @@ def add_info_table() -> None:
                                 'added',
                                 'mismatch',
                                 'failed',
-                                'updated
+                                'updated'
                             );
                         END IF;
                     END
