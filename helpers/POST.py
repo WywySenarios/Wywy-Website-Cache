@@ -17,7 +17,7 @@ response = session.post(
         "Date":"'0001-01-01T01:00:00'",
         "Work Ethic":0,
         "Time Efficiency":0,
-        "Time Efficiency_comments": "heya",
+        "Time Efficiency_comments": "'heya'",
         "Happiness":0,
         "Awareness":0,
         "Sleep Quality":0,
