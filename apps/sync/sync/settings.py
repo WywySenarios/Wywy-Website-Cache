@@ -79,7 +79,7 @@ DATABASES = {
         "NAME": "wywywebsite",
         "USER": os.environ.get("POSTGRES_USER", "postgres"),
         "PASSWORD": os.environ.get("POSTGRES_PASSWORD", "password"),
-        "HOST": "postgres",
+        "HOST": "wywywebsite-cache_database",
         "PORT": os.environ.get("POSTGRES_PORT", "5433"),
         "OPTIONS": {
             "connect_timeout": 5,
@@ -90,7 +90,7 @@ DATABASES = {
         "NAME": "info",
         "USER": os.environ.get("POSTGRES_USER", "postgres"),
         "PASSWORD": os.environ.get("POSTGRES_PASSWORD", "password"),
-        "HOST": "postgres",
+        "HOST": "wywywebsite-cache_database",
         "PORT": os.environ.get("POSTGRES_PORT", "5433"),
         "OPTIONS": {
             "connect_timeout": 5,

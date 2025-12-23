@@ -1,6 +1,6 @@
 services:
-  create_tables:
-    container_name: create_tables
+  wywywebsite-cache_create_tables:
+    container_name: wywywebsite-cache_create_tables
     tty: true
     working_dir: /apps/create_tables
     build:
@@ -14,16 +14,16 @@ services:
       - DB_USERNAME=${DB_USERNAME}
       - POSTGRES_PORT=${POSTGRES_PORT}
     depends_on:
-      database:
+      wywywebsite-cache_database:
         condition: service_healthy
     command: python3 create_tables.py
 
-  cloudflared:
+  wywywebsite-cache_cloudflared:
     working_dir: /apps/cloudflared
     build:
       context: ../
       dockerfile: apps/cloudflared/Dockerfile
-    container_name: cloudflared
+    container_name: wywywebsite-cache_cloudflared
     environment:
       TZ: America/Toronto
       TUNNEL_TOKEN_FILE: /run/secrets/wywywebsite-cache-cloudflared-cloudflare
@@ -32,10 +32,10 @@ services:
     secrets:
       - wywywebsite-cache-cloudflared-cloudflare
     networks:
-      - cloudflared
+      - wywywebsite-cache_cloudflared
 
-  sync:
-    container_name: sync
+  wywywebsite-cache_sync:
+    container_name: wywywebsite-cache_sync
     tty: true
     working_dir: /apps/sync
     build:
@@ -51,12 +51,12 @@ services:
     ports:
       - 8000:8000
     depends_on:
-      database:
+      wywywebsite-cache_database:
         condition: service_healthy
 
   # @TODO secrets for db authentication
-  database:
-    container_name: postgres
+  wywywebsite-cache_database:
+    container_name: wywywebsite-cache_postgres
     image: postgres
     working_dir: /apps/postgres
     restart: always
@@ -80,8 +80,8 @@ services:
     command: -p ${POSTGRES_PORT}
 
 networks:
-  cloudflared:
-    name: cloudflared
+  wywywebsite-cache_cloudflared:
+    name: wywywebsite-cache_cloudflared
 
 secrets:
   wywywebsite-cache-cloudflared-cloudflare:

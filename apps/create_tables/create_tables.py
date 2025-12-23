@@ -8,7 +8,7 @@ import re
 import psycopg2
 import yaml
 
-BASE_URL = "database"
+BASE_URL = "wywywebsite-cache_database"
 
 # Constants
 RESERVEDCOLUMNNAMES = ["id", "user", "users"]

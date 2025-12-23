@@ -1,6 +1,6 @@
 services:
-  create_tables:
-    container_name: create_tables
+  wywywebsite-cache_create_tables:
+    container_name: wywywebsite-cache_create_tables
     tty: true
     working_dir: /apps/create_tables
     build:
@@ -14,12 +14,12 @@ services:
       - DB_USERNAME=${DB_USERNAME}
       - POSTGRES_PORT=${POSTGRES_PORT}
     depends_on:
-      database:
+      wywywebsite-cache_database:
         condition: service_healthy
     command: python3 create_tables.py
 
-  sync:
-    container_name: sync
+  wywywebsite-cache_sync:
+    container_name: wywywebsite-cache_sync
     tty: true
     working_dir: /apps/sync
     build:
@@ -41,12 +41,12 @@ services:
     ports:
       - 8000:8000
     depends_on:
-      database:
+      wywywebsite-cache_database:
         condition: service_healthy
 
   # @TODO secrets for db authentication
-  database:
-    container_name: postgres
+  wywywebsite-cache_database:
+    container_name: wywywebsite-cache_postgres
     image: postgres
     working_dir: /apps/postgres
     restart: always
