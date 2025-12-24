@@ -226,17 +226,7 @@ def index(request: HttpRequest) -> HttpResponse:
         # END - validate schema
         
         # store data
-        # https://en.wikipedia.org/wiki/Two-phase_commit_protocol
-        
-        
-        # we need our ID to match the production db's ID.
-        # if our DB currently does not have any entries, we need to copy the production DB's next ID. Assume, since there is only one user who can commit data, that this ID is accurate.
-        # fetch the production DB's next ID.
-        next_id: int = get_next_id(table_name)
-        if not next_id:
-            return HttpResponseServerError()
-        
-        
+        # @TODO https://en.wikipedia.org/wiki/Two-phase_commit_protocol
         with psycopg.connect(
             dbname=db_name,
             user=env.get("POSTGRES_USER", "postgres"),
@@ -250,9 +240,21 @@ def index(request: HttpRequest) -> HttpResponse:
             host="wywywebsite-cache_database",
             port=env.get("POSTGRES_PORT", 5433)
         ) as info_conn:
+            # we need our ID to match the production db's ID.
+            # if our DB currently does not have any entries, we need to copy the production DB's next ID. Assume, since there is only one user who can commit data, that this ID is accurate.
+            # fetch the production DB's next ID.
+            # apparently ts is unsafe (with incrementation being different behind the scenes for everyone)
+            next_id_cur = data_conn.execute(sql.SQL("SELECT COALESCE(MAX(id), 0) + 1 AS next_id FROM {table};").format(table=sql.Identifier(table_name)))
+            next_id_in_house: int | None = next(next_id_cur)[0]
+            next_id: int
+            if not next_id_in_house:
+                next_id = get_next_id(db_name, table_name)
+                if not next_id:
+                    return HttpResponseServerError()
+            else:
+                next_id = next_id_in_house
+            next_id_cur.close()
             
-            # cols_string: str = "id,"
-            # values_string: str = f"{next_id},"
             cols: List[str] = ["id"]
             values: List = [next_id]
             
