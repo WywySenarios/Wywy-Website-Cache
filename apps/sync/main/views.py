@@ -282,9 +282,8 @@ def index(request: HttpRequest) -> HttpResponse:
                             values.append(None)
                 # values_string += ","
             
-            data_conn.execute(sql.SQL("INSERT INTO {table} ({fields}) VALUES({placeholders})").format(table=sql.Identifier(table_name), fields=sql.SQL(', ').join(map(sql.Identifier, cols)),placeholders=sql.SQL(', ').join(sql.Placeholder() * len(values))), values)
-            # data_conn.execute("INSERT into %s (%s) VALUES (%s);", (table_name, cols_string[:-1], values_string[:-1],))
-            info_conn.execute("INSERT INTO sync_status (table_name, sync_timestamp, status) VALUES (%s, NULL, NULL);", (table_name, ))
+            data_conn.execute(sql.SQL("INSERT INTO {table} ({fields}) VALUES({placeholders});").format(table=sql.Identifier(table_name), fields=sql.SQL(', ').join(map(sql.Identifier, cols)),placeholders=sql.SQL(', ').join(sql.Placeholder() * len(values))), values).close()
+            info_conn.execute("INSERT INTO sync_status (table_name, db_name, entry_id, sync_timestamp, status) VALUES (%s, %s, %s, NULL, NULL);", (table_name, db_name, next_id)).close()
         
         # @TODO recovery
         
