@@ -1,16 +1,17 @@
 from django.shortcuts import render
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.http import HttpResponse, JsonResponse, HttpRequest, HttpResponseBadRequest, HttpResponseServerError
-from typing import List
+from typing import List, Literal
 import yaml
 import json
 import re
 import psycopg
+from psycopg.rows import dict_row
 from psycopg import sql
 import threading
 from os import environ as env
 import requests
-import uuid
+import datetime
 
 def to_snake_case(target: str) -> str:
     """Attempts to convert from regular words/sentences to snake_case. This will not affect strings already in underscore notation. (Does not work with camelCase)
@@ -61,11 +62,77 @@ def auto_sync(sync_event: threading.Event) -> None:
         sync()
 
 def sync() -> None:
-    pass
+    with psycopg.connect(
+            dbname="info",
+            user=env.get("POSTGRES_USER", "postgres"),
+            password=env.get("POSTGRES_PASSWORD", "password"),
+            host="wywywebsite-cache_database",
+            port=env.get("POSTGRES_PORT", 5433)
+        ) as info_conn:
+        # select all targets that need syncing (failed, not synced yet (NULL)) (do not select mismatch for now)
+        targets_cur = info_conn.execute("SELECT id, table_name, db_name, entry_id, status FROM sync_status WHERE status IN ('failed') OR status IS NULL;")
+        
+        
+        for target in targets_cur.fetchall():
+            sync_status_id = target[0]
+            table_name: str = target[1]
+            db_name: str = target[2]
+            target_id: str = target[3]
+            
+            # get the information relating to the target
+            target_record_conn = psycopg.connect(
+                dbname=db_name,
+                user=env.get("POSTGRES_USER", "postgres"),
+                password=env.get("POSTGRES_PASSWORD", "password"),
+                host="wywywebsite-cache_database",
+                port=env.get("POSTGRES_PORT", 5433), row_factory=dict_row
+            )
+            target_record_cur = target_record_conn.execute(sql.SQL("""
+                                    SELECT * FROM {table} WHERE "id"=%s;
+                                    """).format(table=sql.Identifier(table_name)), (target_id,))
+            
+            # @TODO check if the target already exists
+            
+            # contact sql-receptionist and ask for a record addition
+            # @TODO sql-receptionist should reject problematic id keys
+            payload = dict(next(target_record_cur))
+            for k, v in payload.items():
+                if v is None:
+                    payload[k] = f"''"
+                elif isinstance(v, datetime.datetime) or isinstance(v, datetime.date) or isinstance(v, datetime.time):
+                    payload[k] =  f"'{v.isoformat()}'"
+                elif isinstance(v, str):
+                    payload[k] = f"'{v}'"
+            status: None | Literal['updated', 'failed'] = None
+            try:
+                with open("/run/secrets/admin", "r") as f:
+                    response = requests.post(config["referenceUrls"]["db"] + "/" + db_name + "/" + table_name, timeout=5, cookies={
+                        "username": "admin",
+                        "password": f.read()
+                    }, json=payload)
+                    response.raise_for_status()
+            except (requests.HTTPError, requests.exceptions.RequestException) as e:
+                status = "failed"
+            else:
+                status="updated"
+            finally:
+                info_conn.execute("""
+                                  UPDATE sync_status
+                                  SET status=%s, sync_timestamp=%s
+                                  WHERE "id"=%s
+                                  """, (status, datetime.datetime.now().isoformat(), sync_status_id,))
+            target_record_cur.close()
+        targets_cur.close()
+        
+        # summary_cur = info_conn.execute("SELECT * FROM sync_status;")
+        # print(summary_cur.fetchall())
+        # summary_cur.close()
+    
+    print("Sync complete.")
 
-def get_next_id(table_name: str) -> int:
+def get_next_id(db_name: str, table_name: str) -> int:
     with open("/run/secrets/admin", "r") as f:
-        response = requests.get(config["referenceUrls"]["db"] + "/wywywebsite/" + table_name + "/get_next_id", cookies={
+        response = requests.get(config["referenceUrls"]["db"] + "/" + db_name + "/" + table_name + "/get_next_id", cookies={
             "username": "admin",
             "password": f.read()
         }, timeout=5)
