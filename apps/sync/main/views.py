@@ -258,7 +258,6 @@ def index(request: HttpRequest) -> HttpResponse:
             
             # populate column names & insert values
             for col_name in table["schema"]:
-                # cols_string += str(col_name) + ","
                 cols.append(col_name)
                 
                 if col_name in f_data:
@@ -275,12 +274,9 @@ def index(request: HttpRequest) -> HttpResponse:
                 else:
                     match(table["schema"][col_name]["datatype"]):
                         case "str", "string", "text":
-                            # values_string += "''"
                             values.append("")
                         case _:
-                            # values_string += "NULL"
                             values.append(None)
-                # values_string += ","
             
             data_conn.execute(sql.SQL("INSERT INTO {table} ({fields}) VALUES({placeholders});").format(table=sql.Identifier(table_name), fields=sql.SQL(', ').join(map(sql.Identifier, cols)),placeholders=sql.SQL(', ').join(sql.Placeholder() * len(values))), values).close()
             info_conn.execute("INSERT INTO sync_status (table_name, db_name, entry_id, sync_timestamp, status) VALUES (%s, %s, %s, NULL, NULL);", (table_name, db_name, next_id)).close()
