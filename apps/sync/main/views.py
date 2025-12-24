@@ -40,7 +40,7 @@ def to_lower_snake_case(target: str) -> str:
     
     return output[:-1] # remove trailing underscore with "[:-1]"
 
-def auto_sync(stop_event: threading.Event) -> None:
+def auto_sync(sync_event: threading.Event) -> None:
     # automatic sync interval in minutes
     auto_sync_interval: float = float(env.get("AUTOSYNC_INTERVAL", 5))
     
@@ -51,11 +51,12 @@ def auto_sync(stop_event: threading.Event) -> None:
     
     while True:
         # wait until automatic sync interval or until interupted
-        if stop_event.wait(timeout=(auto_sync_interval*60)):
-            print("Sync requested via interupt...")
-            stop_event.clear()
+        if sync_event.wait(timeout=(auto_sync_interval*60)):
+            # print("Sync requested via interupt...")
+            sync_event.clear()
         else:
-            print("Automatically syncing...")
+            pass
+            # print("Automatically syncing...")
         
         sync()
 
@@ -157,9 +158,9 @@ databases: dict = {
     for db in config["data"]
 }
 
-STOP_EVENT: threading.Event = threading.Event()
+SYNC_EVENT: threading.Event = threading.Event()
 
-AUTO_SYNC_THREAD: threading.Thread = threading.Thread(target=auto_sync, args=(STOP_EVENT,))
+AUTO_SYNC_THREAD: threading.Thread = threading.Thread(target=auto_sync, args=(SYNC_EVENT,))
 AUTO_SYNC_THREAD.start()
 
 # END - Global variables
@@ -286,7 +287,7 @@ def index(request: HttpRequest) -> HttpResponse:
         # @TODO recovery
         
         # queue a sync
-        STOP_EVENT.set()
+        SYNC_EVENT.set()
 
         return HttpResponse()
     
