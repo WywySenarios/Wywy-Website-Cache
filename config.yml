@@ -22,13 +22,13 @@ data:
       - tableName: daily
         read: true
         write: true
-        entrytype: form # !!!! this is important I'M NOT SQUIDDING
+        entrytype: form
         schema:
           # Please note that the datatype is what the PostgreSQL database will recognize (e.g. Typescript has no way of differentiating an integer from a float).
           - name: Date
             parser: date # the datatype that the parser should attempt to cast to
             datatype: timestamp
-            entrytype: timestamp
+            entrytype: calendar time
             description: The estimate of when you gained conciousness at the start of this (sleep-based) day.
 
           - name: Work Ethic
@@ -135,22 +135,82 @@ data:
       - tableName: events
         read: true
         write: true
-        entrytype: entries
+        entrytype: stopwatch
+        comments: true
+        tagging: true
         schema:
-          - name: Type
-            datatype: string
-            entrytype: textbox
-            suggestions: [""]
-            comments: false
-
-          - name: Applicable Start
+          - name: Start Time
             datatype: timestamp
             entrytype: calendar time
 
-          - name: Applicable End
+          - name: End time
             datatype: timestamp
             entrytype: calendar time
 
-          - name: Execution Length
-            datatype: float
-            entrytype: textbox
+          - name: Duration
+            invertible: true
+            datatype: interval
+            entrytype: duration textbox
+            description: An estimate related to the event length. Positive values represent how long the event occured for. Negative values represent how long the event did not actively occur inside the respective time interval.
+        descriptors:
+          - name: Maintenance
+            schema:
+              - name: Maintenance Item
+                datatype: enum
+                entrytype: search-select
+                values:
+                  - # subject to presumably intense debate
+
+          - name: Bathroom
+            schema:
+              - name: Bathroom Type
+                datatype: enum
+                entrytype: radio
+                values: ["pee", "poo"]
+          - name: Travel
+            schema:
+              - name: Source
+                datatype: string
+                entrytype: textbox
+
+              - name: Source Resolution
+                datatype: enum
+                entrytype: radio
+                values: ["region", "building", "room"]
+
+              - name: Destination
+                datatype: string
+                entrytype: textbox
+
+              - name: Destination Resolution
+                datatype: enum
+                entrytype: radio
+                values: ["region", "building", "room"]
+          - name: shower
+            schema:
+              - name: Shampoo
+                datatype: boolean
+                entrytype: switch
+                description: Was shampoo used?
+              - name: Body Wash
+                datatype: boolean
+                entrytype: switch
+                description: Was body wash used?
+          - name: dental
+            schema:
+              - name: Waterpik
+                datatype: boolean
+                entrytype: switch
+                description: Did you rinse with Waterpik?
+              - name: Toothbrush
+                datatype: boolean
+                entrytype: switch
+                description: Did you brush your teeth?
+              - name: Floss
+                datatype: boolean
+                entrytype: switch
+                description: Did you floss, not including the bridge?
+              - name: Bridge Floss
+                datatype: boolean
+                entrytype: switch
+                description: Did you floss the teeth under your bridge?
