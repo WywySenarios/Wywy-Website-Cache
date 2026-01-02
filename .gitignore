@@ -6,3 +6,6 @@ apps/postgres
 
 # pycache
 **/__pycache__
+
+# python virtual environment
+.venv
