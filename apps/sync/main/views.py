@@ -13,7 +13,8 @@ from os import environ as env
 import requests
 import datetime
 
-from apps.sync.utils import to_lower_snake_case
+from utils import to_lower_snake_case
+from schema import validate_entry
 
 def auto_sync(sync_event: threading.Event) -> None:
     # automatic sync interval in minutes
@@ -232,38 +233,7 @@ def index(request: HttpRequest) -> HttpResponse:
         if data == None:
             return HttpResponseBadRequest()
         
-        # START - validate schema
-        valid_request = True # innocent until proven guilty
-        # check every item
-        for display_column_name in data:
-            column_name = to_lower_snake_case(display_column_name)
-            is_comments_column: bool = len(column_name) > 9 and column_name[-9:] == "_comments"
-            
-            # special logic for comments
-            if is_comments_column:
-                # check if this column is allowed to have comments
-                if not table["schema"][column_name[:-9]].get("comments", False):
-                    valid_request = False
-                    break
-                
-                if not DATATYPE_CHECK["str"](data[display_column_name]):
-                    valid_request = False
-                    break
-                continue
-            
-            # check if this is a valid column
-            if not column_name in table["schema"]:
-                valid_request = False
-                break
-            
-            # check if the datatype is correct
-            if not DATATYPE_CHECK[table["schema"][column_name]["datatype"]](data[display_column_name]):
-                valid_request = False
-                break
-            
-            # @TODO min/max, etc. checks
-        
-        if not valid_request:
+        if not validate_entry(data, db_name, table_name):
             return HttpResponseBadRequest()
         # END - validate schema
         
