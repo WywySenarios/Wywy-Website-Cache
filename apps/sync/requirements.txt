@@ -2,6 +2,7 @@ asgiref==3.11.0
 certifi==2025.11.12
 charset-normalizer==3.4.4
 Django==6.0
+django-cors-headers==4.9.0
 idna==3.11
 multithreading==0.2.0
 psycopg==3.3.2

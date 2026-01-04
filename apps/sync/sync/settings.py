@@ -12,6 +12,11 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 
 from pathlib import Path
 import os
+import yaml
+
+# peak at config
+with open("config.yml", "r") as file:
+    config = yaml.safe_load(file)
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -38,6 +43,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    "corsheaders",
 ]
 
 MIDDLEWARE = [
@@ -48,7 +54,21 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    "corsheaders.middleware.CorsMiddleware",
 ]
+
+CORS_ALLOWED_ORIGINS = [
+    config["referenceUrls"]["main"]
+]
+CORS_ALLOW_CREDENTIALS = True
+
+CSRF_TRUSTED_ORIGINS = [
+    "http://localhost:4321",
+]
+CSRF_COOKIE_SAMESITE = "None"
+CSRF_COOKIE_SECURE = True
+SESSION_COOKIE_SAMESITE = "None"
+SESSION_COOKIE_SECURE = False
 
 ROOT_URLCONF = 'sync.urls'
 
