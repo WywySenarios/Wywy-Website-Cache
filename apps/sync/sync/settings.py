@@ -63,7 +63,7 @@ CORS_ALLOWED_ORIGINS = [
 CORS_ALLOW_CREDENTIALS = True
 
 CSRF_TRUSTED_ORIGINS = [
-    "http://localhost:4321",
+    config["referenceUrls"]["main"],
 ]
 CSRF_COOKIE_SAMESITE = "None"
 CSRF_COOKIE_SECURE = True
