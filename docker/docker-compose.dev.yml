@@ -13,6 +13,12 @@ services:
       - DB_PASSWORD=${DB_PASSWORD}
       - DB_USERNAME=${DB_USERNAME}
       - POSTGRES_PORT=${POSTGRES_PORT}
+    develop:
+      watch:
+        - action: sync+restart
+          path: ./../apps/create_tables
+          target: ./apps/create_tables
+          initial_sync: true
     depends_on:
       wywywebsite-cache_database:
         condition: service_healthy
