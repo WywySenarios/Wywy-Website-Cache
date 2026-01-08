@@ -261,17 +261,21 @@ def index(request: HttpRequest) -> HttpResponse:
         
         # load in body
         data = json.loads(request.body)
-        
-        # make a copy of data with snake_cased keys
-        f_data = {
-            to_lower_snake_case(key): data[key]
-            for key in data["data"]
-        }
-        
+
         if not data or "data" not in data:
             return HttpResponseBadRequest()
+
+        # make a copy of data with snake_cased keys
+        f_data = {
+            to_lower_snake_case(section_name): (
+                {to_lower_snake_case(key): value for key, value in section_data.items()} if isinstance(section_data, dict) else
+                [to_lower_snake_case(item) if isinstance(item, str) else item for item in section_data]
+            )
+            for section_name, section_data in data.items()
+        }
         
-        if not check_entry(data["data"], table["schema"]):
+        
+        if not check_entry(f_data, table):
             return HttpResponseBadRequest()
         # END - validate schema
         
@@ -291,14 +295,14 @@ def index(request: HttpRequest) -> HttpResponse:
             port=env.get("POSTGRES_PORT", 5433)
         ) as info_conn:
             # main entry
-            store_entry(data_conn, info_conn, data["data"], table["schema"], database_name, table_name)
+            store_entry(data_conn, info_conn, f_data["data"], table["schema"], db_name, table_name)
 
             # @TODO tags
 
             # descriptors
-            if "descriptors" in data:
-                for descriptor_name in data["descriptors"]:
-                    for descriptor_info in data["descriptors"][descriptor_name]:
+            if "descriptors" in f_data:
+                for descriptor_name in f_data["descriptors"]:
+                    for descriptor_info in f_data["descriptors"][descriptor_name]:
                         store_entry(data_conn, info_conn, descriptor_info, table["descriptors"][descriptor_name], database_name, f"{table_name}_descriptors")
         
         # @TODO recovery
