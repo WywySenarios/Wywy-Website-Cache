@@ -17,7 +17,7 @@ RESERVED_DATABASE_NAMES = ["info"]
 RESERVED_TABLE_NAMES = []
 RESERVED_TABLE_SUFFIXES = ["tags", "tag_aliases", "_tag_names", "tag_groups"]
 RESERVED_COLUMN_NAMES = ["id", "user", "users", "primary_tag"]
-RESERVED_COLUMN_SUFFIXES  = ["_comments"]
+RESERVED_COLUMN_SUFFIXES  = ["comments"]
 PSQLDATATYPES: dict[str, str] = {
     "int": "integer",
     "integer": "integer",
@@ -156,8 +156,8 @@ def validate_suffix(name: str, reserved_suffixes: List[str]) -> bool:
     @returns Returns whether or not the name's suffix is reserved (validity)
     """
     for reserved_suffix in reserved_suffixes:
-        suffix_len = len(reserved_suffix)
-        if len(name) >= suffix_len and name[:-suffix_len] == reserved_suffix:
+        suffix_len = len(reserved_suffix) + 1
+        if len(name) >= suffix_len and name[:-suffix_len] == f"_{reserved_suffix}":
             return False
     return True
 
