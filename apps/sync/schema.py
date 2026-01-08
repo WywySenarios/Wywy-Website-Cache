@@ -113,7 +113,7 @@ def check_entry(entry: dict, table_info: dict) -> bool:
 
     # check descriptors
     # check if the descriptors exist when they should.
-    if not (("descriptors" in entry) == ("descriptors" in table_info and table_info["descriptors"])):
+    if not ((not not ("descriptors" in entry)) == (not not ("descriptors" in table_info and table_info["descriptors"]))):
         return False
     
     if "descriptors" in entry:
