@@ -4,7 +4,7 @@ from django.http import HttpRequest, HttpResponse, HttpResponseBadRequest, JsonR
 from django.views.decorators.csrf import ensure_csrf_cookie
 import yaml
 
-from schema import validate_entry
+from schema import check_item
 from utils import to_lower_snake_case
 
 # peak at config
@@ -56,7 +56,7 @@ def index(request: HttpRequest) -> HttpResponse:
         if data == None:
             return HttpResponseBadRequest()
         
-        if not validate_entry(data, db_name, table_name):
+        if not check_item(data, table["schema"]):
             return HttpResponseBadRequest()
         
         # store the input into the cache

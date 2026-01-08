@@ -14,7 +14,7 @@ import requests
 import datetime
 
 from utils import to_lower_snake_case
-from schema import validate_entry
+from schema import check_entry
 
 def auto_sync(sync_event: threading.Event) -> None:
     # automatic sync interval in minutes
@@ -207,6 +207,61 @@ AUTO_SYNC_THREAD.start()
 
 # END - Global variables
 
+def store_entry(data_conn, info_conn, item: dict, schema: dict, target_database_name: str, target_table_name: str) -> None:
+    """Stores an entry in both the respective data table and the info/sync table.
+
+    Args:
+        data_conn (_type_): Connection to the target database.
+        info_conn (_type_): Connection to the info database.
+        item (dict): The item whose data will be entere.
+        schema (dict): The column schema corresponding to the entry.
+        taregt_database_name (str): The name of the target database.
+        target_table_name (str): The name of the SQL table to INSERT INTO.
+    """
+    # we need our ID to match the production db's ID.
+    # if our DB currently does not have any entries, we need to copy the production DB's next ID. Assume, since there is only one user who can commit data, that this ID is accurate.
+    # fetch the production DB's next ID.
+    # apparently ts is unsafe (with incrementation being different behind the scenes for everyone)
+    next_id_cur = data_conn.execute(sql.SQL("SELECT COALESCE(MAX(id), 0) + 1 AS next_id FROM {table};").format(table=sql.Identifier(target_table_name)))
+    next_id_in_house: int | None = next(next_id_cur)[0]
+    next_id: int
+    if not next_id_in_house:
+        next_id = get_next_id(target_database_name, target_table_name)
+        if not next_id:
+            return HttpResponseServerError()
+    else:
+        next_id = next_id_in_house
+    next_id_cur.close()
+    
+    cols: List[str] = ["id"]
+    values: List = [next_id]
+    
+    # populate column names & insert values
+    for col_name in schema:
+        cols.append(col_name)
+        
+        if col_name in item:
+            # if REQUIRES_QUOTATION[table["schema"][col_name]["datatype"]] and :
+            #     values_string += f"'{item[col_name]}'"
+            # match (table["schema"][col_name]["datatype"]):
+            #     # case "str", "string", "text":
+            #     #     values_string += f"'{item[col_name]}'"
+            #     case "bool", "boolean":
+            #         values_string += str(item[col_name]).capitalize()
+            #     case _:
+            #         values_string += str(item[col_name])
+            values.append(item[col_name])
+        else:
+            match(schema[col_name]["datatype"]):
+                case "str", "string", "text":
+                    values.append("")
+                case _:
+                    values.append(None)
+    
+    # record the main entry
+    data_conn.execute(sql.SQL("INSERT INTO {table} ({fields}) VALUES({placeholders});").format(table=sql.Identifier(target_table_name), fields=sql.SQL(', ').join(map(sql.Identifier, cols)),placeholders=sql.SQL(', ').join(sql.Placeholder() * len(values))), values).close()
+    info_conn.execute("INSERT INTO sync_status (table_name, db_name, entry_id, sync_timestamp, status) VALUES (%s, %s, %s, NULL, NULL);", (target_table_name, target_database_name, next_id)).close()
+
 @ensure_csrf_cookie
 def index(request: HttpRequest) -> HttpResponse:
     if request.method == "POST" and request.content_type == "application/json":
@@ -227,13 +282,13 @@ def index(request: HttpRequest) -> HttpResponse:
         # make a copy of data with snake_cased keys
         f_data = {
             to_lower_snake_case(key): data[key]
-            for key in data
+            for key in data["data"]
         }
         
-        if data == None:
+        if not data or "data" not in data:
             return HttpResponseBadRequest()
         
-        if not validate_entry(data, db_name, table_name):
+        if not check_entry(data["data"], table["schema"]):
             return HttpResponseBadRequest()
         # END - validate schema
         
@@ -252,48 +307,16 @@ def index(request: HttpRequest) -> HttpResponse:
             host="wywywebsite-cache_database",
             port=env.get("POSTGRES_PORT", 5433)
         ) as info_conn:
-            # we need our ID to match the production db's ID.
-            # if our DB currently does not have any entries, we need to copy the production DB's next ID. Assume, since there is only one user who can commit data, that this ID is accurate.
-            # fetch the production DB's next ID.
-            # apparently ts is unsafe (with incrementation being different behind the scenes for everyone)
-            next_id_cur = data_conn.execute(sql.SQL("SELECT COALESCE(MAX(id), 0) + 1 AS next_id FROM {table};").format(table=sql.Identifier(table_name)))
-            next_id_in_house: int | None = next(next_id_cur)[0]
-            next_id: int
-            if not next_id_in_house:
-                next_id = get_next_id(db_name, table_name)
-                if not next_id:
-                    return HttpResponseServerError()
-            else:
-                next_id = next_id_in_house
-            next_id_cur.close()
-            
-            cols: List[str] = ["id"]
-            values: List = [next_id]
-            
-            # populate column names & insert values
-            for col_name in table["schema"]:
-                cols.append(col_name)
-                
-                if col_name in f_data:
-                    # if REQUIRES_QUOTATION[table["schema"][col_name]["datatype"]] and :
-                    #     values_string += f"'{f_data[col_name]}'"
-                    # match (table["schema"][col_name]["datatype"]):
-                    #     # case "str", "string", "text":
-                    #     #     values_string += f"'{f_data[col_name]}'"
-                    #     case "bool", "boolean":
-                    #         values_string += str(f_data[col_name]).capitalize()
-                    #     case _:
-                    #         values_string += str(f_data[col_name])
-                    values.append(f_data[col_name])
-                else:
-                    match(table["schema"][col_name]["datatype"]):
-                        case "str", "string", "text":
-                            values.append("")
-                        case _:
-                            values.append(None)
-            
-            data_conn.execute(sql.SQL("INSERT INTO {table} ({fields}) VALUES({placeholders});").format(table=sql.Identifier(table_name), fields=sql.SQL(', ').join(map(sql.Identifier, cols)),placeholders=sql.SQL(', ').join(sql.Placeholder() * len(values))), values).close()
-            info_conn.execute("INSERT INTO sync_status (table_name, db_name, entry_id, sync_timestamp, status) VALUES (%s, %s, %s, NULL, NULL);", (table_name, db_name, next_id)).close()
+            # main entry
+            store_entry(data_conn, info_conn, data["data"], table["schema"], database_name, table_name)
+
+            # @TODO tags
+
+            # descriptors
+            if "descriptors" in data:
+                for descriptor_name in data["descriptors"]:
+                    for descriptor_info in data["descriptors"][descriptor_name]:
+                        store_entry(data_conn, info_conn, descriptor_info, table["descriptors"][descriptor_name], database_name, f"{table_name}_descriptors")
         
         # @TODO recovery
         

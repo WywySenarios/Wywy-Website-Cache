@@ -87,9 +87,60 @@ databases: dict = {
     for db in config["data"]
 }
 
+def check_entry(entry: dict, table_info: dict) -> bool:
+    """Checks the given entry against the given table schema.
+
+    Args:
+        entry (dict): The entry to check.
+        table_info (dict): The table schema to check against.
+
+    Returns:
+        bool: Whether or not the given entry conforms to the table schema.
+    """
+
+    if not "data" in entry or not check_item(entry["data"], table_info["schema"]):
+        return False
+
+    # @TODO check tags
+
+    # check descriptors
+    # check if the descriptors exist when they should.
+    if not (("descriptors" in entry) == ("descriptors" in table_info and table_info["descriptors"])):
+        return False
+    
+    if "descriptors" in entry:
+        # check each descriptor individually
+        # iterate through each descriptor category
+        for descriptor_name in entry["descriptors"]:
+            # verify if this descriptor is in the config
+            if not descriptor_name in table_info["descriptors"]:
+                return False
+
+            if not isinstance(entry["descriptors"][descriptor_name], list):
+                return False
+
+            # iterate through every descriptor
+            for descriptor_entry in entry["descriptors"][descriptor_name]:
+                if not isinstance(descriptor_entry, dict):
+                    return False
+                
+                if not check_item(descriptor_entry, table_info["descriptors"][descriptor_name]):
+                    return False
+    
+    return True
+
+
 # @TODO verify every entry that is needed is inside
-def validate_entry(data: dict, database_name: str, table_name: str) -> bool:
-    table = databases[database_name][table_name]
+def check_item(data: dict, schema: dict) -> bool:
+    """Checks the given data against the given schema.
+
+    Args:
+        data (dict): The data to check.
+        schema (dict): The schema to check against.
+
+    Returns:
+        bool: Whether or not the data conforms to the schema.
+    """
     # check every item
     for display_column_name in data:
         column_name = to_lower_snake_case(display_column_name)
@@ -98,7 +149,7 @@ def validate_entry(data: dict, database_name: str, table_name: str) -> bool:
         # special logic for comments
         if is_comments_column:
             # check if this column is allowed to have comments
-            if not table["schema"][column_name[:-9]].get("comments", False):
+            if not schema[column_name[:-9]].get("comments", False):
                 return False
             
             if not DATATYPE_CHECK["str"](data[display_column_name]):
@@ -106,14 +157,28 @@ def validate_entry(data: dict, database_name: str, table_name: str) -> bool:
             continue
         
         # check if this is a valid column
-        if not column_name in table["schema"]:
+        if not column_name in schema:
             print("col name invalid")
             return False
         
         # check if the datatype is correct
-        if not DATATYPE_CHECK[table["schema"][column_name]["datatype"]](data[display_column_name]):
-            print(f"bad datatype {data[display_column_name]} {table["schema"][column_name]["datatype"]}")
+        if not DATATYPE_CHECK[schema[column_name]["datatype"]](data[display_column_name]):
+            print(f"bad datatype {data[display_column_name]} {schema[column_name]["datatype"]}")
             return False
         
         # @TODO min/max, etc. checks
+    return True
+
+def check_tags(tags: List[str], database_name: str, table_name: str) -> bool:
+    """Checks whether or not all the given tags are unique and valid.
+
+    Args:
+        tags (dict): The tags to check.
+        database_name (str): The name of the database that contains the table whose entry is being tagged.
+        table_name (str): The name of the table whose entry is being tagged.
+
+    Returns:
+        bool: Whether or not the given tags are a valid set of tags or not.
+    """
+    table = databases[database_name][table_name]
     return True
