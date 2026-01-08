@@ -74,13 +74,21 @@ with open("config.yml", "r") as file:
 databases: dict = {
     to_lower_snake_case(db["dbname"]): {
         to_lower_snake_case(table["tableName"]): {
-            "read": table["read"],
-            "write": table["write"],
-            "entrytype": table["entrytype"],
+            **table,
             "schema": {
-                to_lower_snake_case(item["name"]): item
-                for item in table["schema"]
-            }
+                to_lower_snake_case(column_schema["name"]): column_schema
+                for column_schema in table["schema"]
+            },
+
+            "descriptors": {
+                to_lower_snake_case(descriptor_schema["name"]): {
+                    "schema": {
+                        to_lower_snake_case(column_schema["name"]): column_schema
+                        for column_schema in descriptor_schema["schema"]
+                    }
+                }
+                for descriptor_schema in table["descriptors"]
+            } if "descriptors" in table else None,
         }
         for table in db["tables"]
     }

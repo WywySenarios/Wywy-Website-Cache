@@ -14,7 +14,7 @@ import requests
 import datetime
 
 from utils import to_lower_snake_case
-from schema import check_entry
+from schema import check_entry, databases
 
 def auto_sync(sync_event: threading.Event) -> None:
     # automatic sync interval in minutes
@@ -182,23 +182,6 @@ REQUIRES_QUOTATION = {
 # peak at config
 with open("config.yml", "r") as file:
     config = yaml.safe_load(file)
-
-# convert all the table schemas into dictionaries with snake_case keys
-databases: dict = {
-    to_lower_snake_case(db["dbname"]): {
-        to_lower_snake_case(table["tableName"]): {
-            "read": table["read"],
-            "write": table["write"],
-            "entrytype": table["entrytype"],
-            "schema": {
-                to_lower_snake_case(item["name"]): item
-                for item in table["schema"]
-            }
-        }
-        for table in db["tables"]
-    }
-    for db in config["data"]
-}
 
 SYNC_EVENT: threading.Event = threading.Event()
 
