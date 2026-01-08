@@ -1,6 +1,8 @@
 """Helper script to create PostgreSQL tables based on the config.yml file.
 @TODO write to stderr on errors, and figure out warnings, too
 @TODO ensure that no table name or column name is used twice
+@TODO check column names & suffixes
+@TODO log enforcement failures
 """
 # imports
 from os import environ as env
@@ -15,7 +17,7 @@ BASE_URL = "wywywebsite-cache_database"
 # Constants
 RESERVED_DATABASE_NAMES = ["info"]
 RESERVED_TABLE_NAMES = []
-RESERVED_TABLE_SUFFIXES = ["tags", "tag_aliases", "_tag_names", "tag_groups"]
+RESERVED_TABLE_SUFFIXES = ["tags", "tag_aliases", "_tag_names", "tag_groups", "descriptors"]
 RESERVED_COLUMN_NAMES = ["id", "user", "users", "primary_tag"]
 RESERVED_COLUMN_SUFFIXES  = ["comments"]
 PSQLDATATYPES: dict[str, str] = {
@@ -358,6 +360,25 @@ def create_tagging_tables(conn, table_name: str):
         if not table_exists(conn, table_name + "_tag_groups"):
             cur.execute(TAGGING_TABLE_STATEMENTS["tag_groups"].format(sql.Identifier(table_name + "_tag_groups"), sql.Identifier(f"{table_name}_tag_names")))
 
+def create_descriptor_tables(conn, table_schema: dict) -> bool:
+    """Creates related descriptor tables if necessary, assuming that the table requires descriptors. @TODO reject invalid configs where there is a collision between different descriptor tables (extremely unlikely if the user is good-faith)
+
+    Args:
+        conn (_type_): Connection to the database containing the parent table.
+        table_schema (dict): The schema for the parent table.
+
+    Returns:
+        bool: Whether or not the tables already exist or have been created.
+    """
+    # create one table for every descriptor type.
+    for descriptor_schema in table_schema["descriptors"]:
+        descriptor_table_name: str = f"{table_schema["name"]}_{descriptor_schema.name}_descriptors"
+        if not table_exists(conn, descriptor_table_name):
+            conn.execute(sql.SQL("CREATE TABLE {} (id SERIAL PRIMARY KEY);").format(sql.Identifier(descriptor_table_name))).close()
+
+        for column_schema in descriptor_schema["schema"]:
+            enforce_column(conn, descriptor_table_name, column_schema)
+
 if __name__ == "__main__":
     print("Attempting to create tables based on config.yml...")
     # loop through every database that has tables to be created
@@ -434,6 +455,28 @@ if __name__ == "__main__":
             if not "schema" in tableInfo or not (type(tableInfo["schema"]) is List or type(tableInfo["schema"]) is list) or len(tableInfo["schema"]) < 1 or not tableInfo["schema"]:
                 schema_violations.append(f"Table {tableInfo["tableName"]} must have least 1 column of data to store.")
 
+            # @TODO tagging related violations
+
+            # descriptor related violations
+            if "descriptors" in tableInfo:
+                # there are 1+ descriptors
+                if not "descriptors" in tableInfo or not (type(tableInfo["descriptors"]) is List or type(tableInfo["descriptors"] is list)) or len(tableInfo["descriptors"]) < 1:
+                    schema_violations.append(f"Table {tableInfo["tableName"]} must have at least 1 descriptor if descriptors are enabled.")
+
+                # descriptor validity
+                for descriptor_schema in tableInfo["descriptors"]:
+                    # require descriptor names. These names are subject to the same rules as column names.
+                    if "name" not in descriptor_schema or not isinstance(descriptor_schema["name"], str) or len(descriptor_schema["schema"]) == 0:
+                        schema_violations.append(f"Table {tableInf["tableName"]} contains a nameless descriptor.")
+                        continue
+
+                    # @TODO avoid reserved column names
+
+                    # @TODO avoid reserved column suffixes
+
+                    # there are 1+ columns
+                    if "schema" not in descriptor_schema or not (type(descriptor_schema) is List or type(descriptor_schema) is list):
+                        schema_violations.append(f"Descriptor {descriptor_schema["name"]} in table {tableInfo["tableName"]} must have a schema that consists of an array of columns schemas.")
             if len(schema_violations) > 0:
                 print(f"Skipping creation of table {db_name}/{table_name} due to schema {"violation" if len(schema_violations) == 1 else "violations"}:")
                 for schema_violation in schema_violations:
@@ -447,6 +490,10 @@ if __name__ == "__main__":
                     # create tagging tables if necessary
                     if tableInfo.get("tagging", False):
                         create_tagging_tables(conn, table_name)
+
+                    # create descriptor tables if necessary
+                    if "descriptors" in tableInfo:
+                        create_descriptor_tables(conn, tableInfo)
                     
                     # add in the columns individually
                     for column_schema in tableInfo["schema"]:
