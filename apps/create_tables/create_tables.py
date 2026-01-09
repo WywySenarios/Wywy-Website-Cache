@@ -18,7 +18,7 @@ BASE_URL = "wywywebsite-cache_database"
 # Constants
 RESERVED_DATABASE_NAMES = ["info"]
 RESERVED_TABLE_NAMES = []
-RESERVED_TABLE_SUFFIXES = ["tags", "tag_aliases", "_tag_names", "tag_groups", "descriptors"]
+RESERVED_TABLE_SUFFIXES = ["tags", "tag_aliases", "tag_names", "tag_groups", "descriptors"]
 RESERVED_COLUMN_NAMES = ["id", "user", "users", "primary_tag"]
 RESERVED_COLUMN_SUFFIXES  = ["comments"]
 PSQLDATATYPES: dict[str, str] = {
