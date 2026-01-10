@@ -47,7 +47,8 @@ def sync() -> None:
         # select all targets that need syncing (failed, not synced yet (NULL)) (do not select mismatch for now)
         targets_cur = info_conn.execute("SELECT id, table_name, db_name, entry_id, status FROM sync_status WHERE status IN ('failed') OR status IS NULL;")
         
-        
+        num_successes = 0
+        num_failures = 0
         for target in targets_cur.fetchall():
             sync_status_id = target[0]
             table_name: str = target[1]
@@ -88,8 +89,10 @@ def sync() -> None:
                     response.raise_for_status()
             except (requests.HTTPError, requests.exceptions.RequestException) as e:
                 status = "failed"
+                num_failures += 1
             else:
                 status="updated"
+                num_successes += 1
             finally:
                 info_conn.execute("""
                                   UPDATE sync_status
@@ -99,11 +102,9 @@ def sync() -> None:
             target_record_cur.close()
         targets_cur.close()
         
-        # summary_cur = info_conn.execute("SELECT * FROM sync_status;")
-        # print(summary_cur.fetchall())
-        # summary_cur.close()
+        print(f"Successfullly synced {num_successes} entries and failed to sync {num_failures} entries.")
     
-    print("Sync complete.")
+    # print("Sync complete.")
 
 def get_next_id(db_name: str, table_name: str) -> int:
     with open("/run/secrets/admin", "r") as f:
