@@ -190,7 +190,7 @@ AUTO_SYNC_THREAD.start()
 
 # END - Global variables
 
-def store_entry(data_conn, info_conn, item: dict, schema: dict, target_database_name: str, target_table_name: str) -> None:
+def store_entry(data_conn, info_conn, item: dict, schema: dict, target_database_name: str, target_table_name: str, target_parent_table_name: str) -> None:
     """Stores an entry in both the respective data table and the info/sync table.
 
     Args:
@@ -199,7 +199,8 @@ def store_entry(data_conn, info_conn, item: dict, schema: dict, target_database_
         item (dict): The item whose data will be entere.
         schema (dict): The column schema corresponding to the entry.
         taregt_database_name (str): The name of the target database.
-        target_table_name (str): The name of the SQL table to INSERT INTO.
+        target_table_name (str): The name of the target table.
+        target_parent_table_name (str): The name of the target table's parent.
     """
     # we need our ID to match the production db's ID.
     # if our DB currently does not have any entries, we need to copy the production DB's next ID. Assume, since there is only one user who can commit data, that this ID is accurate.
@@ -243,7 +244,7 @@ def store_entry(data_conn, info_conn, item: dict, schema: dict, target_database_
     
     # record the main entry
     data_conn.execute(sql.SQL("INSERT INTO {table} ({fields}) VALUES({placeholders});").format(table=sql.Identifier(target_table_name), fields=sql.SQL(', ').join(map(sql.Identifier, cols)),placeholders=sql.SQL(', ').join(sql.Placeholder() * len(values))), values).close()
-    info_conn.execute("INSERT INTO sync_status (table_name, db_name, entry_id, sync_timestamp, status) VALUES (%s, %s, %s, NULL, NULL);", (target_table_name, target_database_name, next_id)).close()
+    info_conn.execute("INSERT INTO sync_status (table_name, parent_table_name, db_name, entry_id, sync_timestamp, status) VALUES (%s, %s, %s, %s, NULL, NULL);", (target_table_name, target_parent_table_name, target_database_name, next_id)).close()
 
 @ensure_csrf_cookie
 def index(request: HttpRequest) -> HttpResponse:

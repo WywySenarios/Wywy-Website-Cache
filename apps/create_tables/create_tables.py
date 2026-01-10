@@ -135,6 +135,7 @@ def add_info_table() -> None:
                     CREATE TABLE sync_status (
                         id BIGSERIAL PRIMARY KEY,
                         table_name TEXT NOT NULL,
+                        parent_table_name TEXT NOT NULL,
                         db_name TEXT NOT NULL,
                         entry_id TEXT NOT NULL,
                         sync_timestamp TIMESTAMPTZ NULL,
