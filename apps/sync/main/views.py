@@ -45,15 +45,17 @@ def sync() -> None:
             port=env.get("POSTGRES_PORT", 5433)
         ) as info_conn:
         # select all targets that need syncing (failed, not synced yet (NULL)) (do not select mismatch for now)
-        targets_cur = info_conn.execute("SELECT id, table_name, db_name, entry_id, status FROM sync_status WHERE status IN ('failed') OR status IS NULL;")
+        targets_cur = info_conn.execute("SELECT id, table_name, parent_table_name, table_type, db_name, entry_id, status FROM sync_status WHERE status IN ('failed') OR status IS NULL;")
         
         num_successes = 0
         num_failures = 0
         for target in targets_cur.fetchall():
             sync_status_id = target[0]
             table_name: str = target[1]
-            db_name: str = target[2]
-            target_id: str = target[3]
+            parent_table_name: str = target[2]
+            table_type: str = target[3]
+            db_name: str = target[4]
+            target_id: str = target[5]
             
             # get the information relating to the target
             target_record_conn = psycopg.connect(
@@ -82,7 +84,7 @@ def sync() -> None:
             status: None | Literal['updated', 'failed'] = None
             try:
                 with open("/run/secrets/admin", "r") as f:
-                    response = requests.post(config["referenceUrls"]["db"] + "/" + db_name + "/" + table_name, timeout=5, cookies={
+                    response = requests.post(f"{config["referenceUrls"]["db"]}/{db_name}/{parent_table_name}/{table_type}{f"/{table_name[len(parent_table_name) + 1:][:1 + len(table_type)]}" if table_type != "data" else ""}", timeout=5, cookies={
                         "username": "admin",
                         "password": f.read()
                     }, json=payload)
@@ -103,6 +105,10 @@ def sync() -> None:
         targets_cur.close()
         
         print(f"Successfullly synced {num_successes} entries and failed to sync {num_failures} entries.")
+
+        # summary_cur = info_conn.execute("SELECT * FROM sync_status;")
+        # print(summary_cur.fetchall())
+        # summary_cur.close()
     
     # print("Sync complete.")
 
@@ -191,7 +197,7 @@ AUTO_SYNC_THREAD.start()
 
 # END - Global variables
 
-def store_entry(data_conn, info_conn, item: dict, schema: dict, target_database_name: str, target_table_name: str, target_parent_table_name: str) -> None:
+def store_entry(data_conn, info_conn, item: dict, schema: dict, target_database_name: str, target_table_name: str, target_parent_table_name: str, target_table_type: str) -> None:
     """Stores an entry in both the respective data table and the info/sync table.
 
     Args:
@@ -202,6 +208,7 @@ def store_entry(data_conn, info_conn, item: dict, schema: dict, target_database_
         taregt_database_name (str): The name of the target database.
         target_table_name (str): The name of the target table.
         target_parent_table_name (str): The name of the target table's parent.
+        target_table_type (str): The target table's type.
     """
     # we need our ID to match the production db's ID.
     # if our DB currently does not have any entries, we need to copy the production DB's next ID. Assume, since there is only one user who can commit data, that this ID is accurate.
@@ -245,7 +252,7 @@ def store_entry(data_conn, info_conn, item: dict, schema: dict, target_database_
     
     # record the main entry
     data_conn.execute(sql.SQL("INSERT INTO {table} ({fields}) VALUES({placeholders});").format(table=sql.Identifier(target_table_name), fields=sql.SQL(', ').join(map(sql.Identifier, cols)),placeholders=sql.SQL(', ').join(sql.Placeholder() * len(values))), values).close()
-    info_conn.execute("INSERT INTO sync_status (table_name, parent_table_name, db_name, entry_id, sync_timestamp, status) VALUES (%s, %s, %s, %s, NULL, NULL);", (target_table_name, target_parent_table_name, target_database_name, next_id)).close()
+    info_conn.execute("INSERT INTO sync_status (table_name, parent_table_name, table_type, db_name, entry_id, sync_timestamp, status) VALUES (%s, %s, %s, %s, %s, NULL, NULL);", (target_table_name, target_parent_table_name, target_table_type, target_database_name, next_id)).close()
 
 @ensure_csrf_cookie
 def index(request: HttpRequest) -> HttpResponse:
@@ -297,7 +304,7 @@ def index(request: HttpRequest) -> HttpResponse:
             port=env.get("POSTGRES_PORT", 5433)
         ) as info_conn:
             # main entry
-            store_entry(data_conn, info_conn, f_data["data"], table["schema"], db_name, table_name)
+            store_entry(data_conn, info_conn, f_data["data"], table["schema"], db_name, table_name, table_name, "data")
 
             # @TODO tags
 
@@ -305,7 +312,7 @@ def index(request: HttpRequest) -> HttpResponse:
             if "descriptors" in f_data:
                 for descriptor_name in f_data["descriptors"]:
                     for descriptor_info in f_data["descriptors"][descriptor_name]:
-                        store_entry(data_conn, info_conn, descriptor_info, table["descriptors"][descriptor_name], database_name, f"{table_name}_descriptors")
+                        store_entry(data_conn, info_conn, descriptor_info, table["descriptors"][descriptor_name], database_name, table_name, "{table_name}_{descriptor_name}_descriptors", "descriptors")
         
         # @TODO recovery
         
