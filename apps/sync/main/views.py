@@ -104,7 +104,7 @@ def sync() -> None:
             target_record_cur.close()
         targets_cur.close()
         
-        print(f"Successfullly synced {num_successes} entries and failed to sync {num_failures} entries.")
+        print(f"Successfully synced {num_successes} entries and failed to sync {num_failures} entries.")
 
         # summary_cur = info_conn.execute("SELECT * FROM sync_status;")
         # print(summary_cur.fetchall())
