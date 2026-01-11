@@ -38,16 +38,13 @@ services:
       - POSTGRES_PASSWORD=${DB_PASSWORD}
       - POSTGRES_USER=${DB_USERNAME}
       - POSTGRES_PORT=${POSTGRES_PORT}
-    develop:
-      watch:
-        - action: sync
-          path: ./../apps/sync
-          target: ./apps/sync
-          initial_sync: true
     secrets:
       - admin
     ports:
       - 8000:8000
+    volumes:
+      - ./../apps/sync:/apps/sync
+      - ./../config.yml:/apps/sync/config.yml
     depends_on:
       wywywebsite-cache_database:
         condition: service_healthy
@@ -66,7 +63,8 @@ services:
     ports:
       - ${POSTGRES_PORT}:${POSTGRES_PORT}
     healthcheck:
-      test: [ "CMD", "pg_isready", "-U", "${DB_USERNAME}", "-p", "${POSTGRES_PORT}" ]
+      test:
+        ["CMD", "pg_isready", "-U", "${DB_USERNAME}", "-p", "${POSTGRES_PORT}"]
       interval: 5m
       timeout: 5s
       start_period: 3s
