@@ -81,6 +81,8 @@ def sync() -> None:
                     payload[k] =  f"'{v.isoformat()}'"
                 elif isinstance(v, str):
                     payload[k] = f"'{v}'"
+            # remove id because the sql-receptionist will take care of that.
+            del payload["id"]
             status: None | Literal['updated', 'failed'] = None
             try:
                 with open("/run/secrets/admin", "r") as f:
