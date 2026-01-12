@@ -35,7 +35,10 @@ DATATYPE_CHECK: dict = {
         r"|[0-9]{2}:[0-9]{2}:[0-9]{2}\.[0-9]{1,6}"
         r"|[0-9]{6}"
         r"|[0-9]{6}\.[0-9]{1,6})\'", x
-    ) is not None
+    ) is not None,
+
+    # @TODO stricter enum checking
+    "enum": lambda x: x is not None,
 }
 
 DEFAULT_VALUES = {
