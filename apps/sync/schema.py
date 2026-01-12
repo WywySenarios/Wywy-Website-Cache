@@ -162,7 +162,7 @@ def check_entry(entry: dict, table_info: dict) -> bool:
                         print(f"The format of a {descriptor_name} descriptor is invalid.")
                     return False
                 
-                if not check_item(descriptor_entry, table_info["descriptors"][descriptor_name]):
+                if not check_item(descriptor_entry, table_info["descriptors"][descriptor_name]["schema"]):
                     if VERBOSITY_LEVEL > 0:
                         print(f"A {descriptor_name} descriptor does not conform to the descriptor schema.")
                     return False
