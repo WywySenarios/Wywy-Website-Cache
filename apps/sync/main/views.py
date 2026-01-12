@@ -13,7 +13,7 @@ from os import environ as env
 import requests
 import datetime
 
-from utils import to_lower_snake_case
+from utils import to_lower_snake_case, get_env_int
 from schema import check_entry, databases
 
 SYNC_VERBOSITY = get_env_int("SYNC_VERBOSITY", 0)
