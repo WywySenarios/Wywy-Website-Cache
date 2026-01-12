@@ -310,7 +310,7 @@ def index(request: HttpRequest) -> HttpResponse:
             port=env.get("POSTGRES_PORT", 5433)
         ) as info_conn:
             # main entry
-            store_entry(data_conn, info_conn, f_data["data"], table["schema"], db_name, table_name, table_name, "data")
+            store_entry(data_conn, info_conn, f_data["data"], table["schema"], database_name, table_name, table_name, "data")
 
             # @TODO tags
 
@@ -318,7 +318,7 @@ def index(request: HttpRequest) -> HttpResponse:
             if "descriptors" in f_data:
                 for descriptor_name in f_data["descriptors"]:
                     for descriptor_info in f_data["descriptors"][descriptor_name]:
-                        store_entry(data_conn, info_conn, descriptor_info, table["descriptors"][descriptor_name], database_name, table_name, "{table_name}_{descriptor_name}_descriptors", "descriptors")
+                        store_entry(data_conn, info_conn, descriptor_info, table["descriptors"][descriptor_name]["schema"], database_name, f"{table_name}_{descriptor_name}_descriptors", table_name, "descriptors")
         
         # @TODO recovery
         
