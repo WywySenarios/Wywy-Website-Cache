@@ -267,11 +267,11 @@ def index(request: HttpRequest) -> HttpResponse:
         url_chunks: List[str] = request.path.split("/")
         if len(url_chunks) != 4:
             return HttpResponseBadRequest("Bad POST URL.")
-        db_name = to_lower_snake_case(url_chunks[2])
+        database_name = to_lower_snake_case(url_chunks[2])
         table_name = to_lower_snake_case(url_chunks[3])
-        if not db_name in databases or not table_name in databases[db_name]:
-            return HttpResponseBadRequest(f"Database \"{db_name}\" was not found.")
-        table: dict = databases[db_name][table_name]
+        if not database_name in databases or not table_name in databases[database_name]:
+            return HttpResponseBadRequest(f"Database \"{database_name}\" was not found.")
+        table: dict = databases[database_name][table_name]
 
         
         # load in body
@@ -297,7 +297,7 @@ def index(request: HttpRequest) -> HttpResponse:
         # store data
         # @TODO https://en.wikipedia.org/wiki/Two-phase_commit_protocol
         with psycopg.connect(
-            dbname=db_name,
+            dbname=database_name,
             user=env.get("POSTGRES_USER", "postgres"),
             password=env.get("POSTGRES_PASSWORD", "password"),
             host="wywywebsite-cache_database",
