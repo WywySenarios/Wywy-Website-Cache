@@ -109,6 +109,8 @@ def check_entry(entry: dict, table_info: dict) -> bool:
     """
 
     if not "data" in entry or not check_item(entry["data"], table_info["schema"]):
+        if VERBOSITY_LEVEL > 0:
+            print("There is no data or the data is in an unexpected format.")
         return False
 
     # @TODO check tags
@@ -130,7 +132,7 @@ def check_entry(entry: dict, table_info: dict) -> bool:
         for tag_id in entry["tags"]:
             if (isinstance(tag_id, str) and tag_id.isdigit()) or isinstance(tag_id, int):
                 if VERBOSITY_LEVEL > 0:
-                    print("Tag IDs must be provided rather than tag names.")
+                    print(f"Tag \"{tag_id}\" is invalid. Tag IDs must be provided rather than tag names.")
                 return False
 
     # check descriptors
@@ -144,17 +146,25 @@ def check_entry(entry: dict, table_info: dict) -> bool:
         for descriptor_name in entry["descriptors"]:
             # verify if this descriptor is in the config
             if not descriptor_name in table_info["descriptors"]:
+                if VERBOSITY_LEVEL > 0:
+                    print(f"Descriptor type \"{descriptor_name}\" was not found.")
                 return False
 
             if not isinstance(entry["descriptors"][descriptor_name], list):
+                if VERBOSITY_LEVEL > 0:
+                    print(f"Descriptor(s) of type \"{descriptor_name}\" are not in an array. You must provide descriptors in arrays, even if there is only one descriptor.")
                 return False
 
             # iterate through every descriptor
             for descriptor_entry in entry["descriptors"][descriptor_name]:
                 if not isinstance(descriptor_entry, dict):
+                    if VERBOSITY_LEVEL > 0:
+                        print(f"The format of a {descriptor_name} descriptor is invalid.")
                     return False
                 
                 if not check_item(descriptor_entry, table_info["descriptors"][descriptor_name]):
+                    if VERBOSITY_LEVEL > 0:
+                        print(f"A {descriptor_name} descriptor does not conform to the descriptor schema.")
                     return False
     
     return True
@@ -180,9 +190,13 @@ def check_item(data: dict, schema: dict) -> bool:
         if is_comments_column:
             # check if this column is allowed to have comments
             if not schema[column_name[:-9]].get("comments", False):
+                if VERBOSITY_LEVEL > 0:
+                    print(f"Comments column {column_name} is related to a column that does not have commenting enabled.")
                 return False
             
             if not DATATYPE_CHECK["str"](data[display_column_name]):
+                if VERBOSITY_LEVEL > 0:
+                    print(f"Comments column {column_name} must contain a string comment.")
                 return False
             continue
         
