@@ -130,7 +130,7 @@ def check_entry(entry: dict, table_info: dict) -> bool:
             return False
     
         for tag_id in entry["tags"]:
-            if (isinstance(tag_id, str) and tag_id.isdigit()) or isinstance(tag_id, int):
+            if not (isinstance(tag_id, str) and tag_id.isdigit()) and not isinstance(tag_id, int):
                 if VERBOSITY_LEVEL > 0:
                     print(f"Tag \"{tag_id}\" is invalid. Tag IDs must be provided rather than tag names.")
                 return False
