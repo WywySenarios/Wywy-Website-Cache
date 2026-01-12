@@ -128,7 +128,7 @@ def check_entry(entry: dict, table_info: dict) -> bool:
             return False
     
         for tag_id in entry["tags"]:
-            if (instanceof(tag_id, str) and tag_id.isdigit()) or instanceof(tag_id, int):
+            if (isinstance(tag_id, str) and tag_id.isdigit()) or isinstance(tag_id, int):
                 if VERBOSITY_LEVEL > 0:
                     print("Tag IDs must be provided rather than tag names.")
                 return False
