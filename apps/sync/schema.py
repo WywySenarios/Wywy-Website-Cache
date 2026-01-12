@@ -112,6 +112,26 @@ def check_entry(entry: dict, table_info: dict) -> bool:
         return False
 
     # @TODO check tags
+    if ("tags" in entry and ("tagging" not in table_info or table_info["tagging"] != True)):
+        if VERBOSITY_LEVEL > 0:
+            print(f"Tagging is disabled on table {table_info.name}.")
+        return False
+    elif ("tags" not in entry and ("tagging" in table_info and table_info["tagging"] == True)):
+        if VERBOSITY_LEVEL > 0:
+            print(f"Tagging is enabled on table {table_info.name}. You must provide at least one tag.")
+        return False
+    
+    if "tags" in entry:
+        if not isinstance(entry["tags"], list):
+            if VERBOSITY_LEVEL > 0:
+                print("An array of tags must be provided. This array can be empty.")
+            return False
+    
+        for tag_id in entry["tags"]:
+            if (instanceof(tag_id, str) and tag_id.isdigit()) or instanceof(tag_id, int):
+                if VERBOSITY_LEVEL > 0:
+                    print("Tag IDs must be provided rather than tag names.")
+                return False
 
     # check descriptors
     # check if the descriptors exist when they should.
@@ -163,6 +183,14 @@ def check_item(data: dict, schema: dict) -> bool:
                 return False
             
             if not DATATYPE_CHECK["str"](data[display_column_name]):
+                return False
+            continue
+        
+        # special logic for primary_tag
+        if column_name == "primary_tag":
+            if not DATATYPE_CHECK["str"](data[display_column_name]):
+                if VERBOSITY_LEVEL > 0:
+                    print("The primary tag column does not have a non-empty tag.")
                 return False
             continue
         
