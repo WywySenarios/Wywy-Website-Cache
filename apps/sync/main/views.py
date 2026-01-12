@@ -16,6 +16,8 @@ import datetime
 from utils import to_lower_snake_case
 from schema import check_entry, databases
 
+SYNC_VERBOSITY = get_env_int("SYNC_VERBOSITY", 0)
+
 def auto_sync(sync_event: threading.Event) -> None:
     # automatic sync interval in minutes
     auto_sync_interval: float = float(env.get("AUTOSYNC_INTERVAL", 5))
@@ -106,11 +108,13 @@ def sync() -> None:
             target_record_cur.close()
         targets_cur.close()
         
-        print(f"Successfully synced {num_successes} entries and failed to sync {num_failures} entries.")
+        if SYNC_VERBOSITY > 0:
+            print(f"Successfully synced {num_successes} entries and failed to sync {num_failures} entries.")
 
-        # summary_cur = info_conn.execute("SELECT * FROM sync_status;")
-        # print(summary_cur.fetchall())
-        # summary_cur.close()
+        if SYNC_VERBOSITY > 1:
+            summary_cur = info_conn.execute("SELECT * FROM sync_status;")
+            print(summary_cur.fetchall())
+            summary_cur.close()
     
     # print("Sync complete.")
 

@@ -1,10 +1,10 @@
 # datatype checking functions
 import re
 import yaml
-from utils import to_lower_snake_case
+from utils import to_lower_snake_case, get_env_int
 from os import environ as env
 
-VERBOSITY_LEVEL = int(env.get("APPS_SYNC_VERBOSITY", "0")) if env.get("APPS_SYNC_VERBOSITY", "0").isdigit() else 0
+VERBOSITY_LEVEL = get_env_int("SCHEMA_CHECK_VERBOSITY", 0)
 
 DATATYPE_CHECK: dict = {
     "int": lambda x: isinstance(x, int),

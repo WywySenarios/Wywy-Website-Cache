@@ -2,6 +2,7 @@
 
 import re
 from typing import List
+from os import environ as env
 
 
 def to_lower_snake_case(target: str) -> str:
@@ -55,3 +56,15 @@ def chunkify_url(url: str, max_chunks: int = -1) -> List[str]:
         return chunky_url.split("/")
     else:
         return chunky_url.split("/")[:max_chunks]
+
+def get_env_int(env_name: str, default_value: int = 0):
+    """Attempts to get the integer value of an environment variable. Cannot parse negative numbers.
+
+    Args:
+        env_name (str): The name of the environment variable.
+        default_value (int): The default value to return if the environment variable is invalid (i.e. not an non-negative integer) or the environment variable doesn't exist.
+
+    Returns:
+        int: The respective value.
+    """
+    return int(env.get(env_name, default_value)) if env.get(env_name, default_value).isdigit() else default_value
