@@ -2,7 +2,9 @@
 import re
 import yaml
 from utils import to_lower_snake_case
+from os import environ as env
 
+VERBOSITY_LEVEL = int(env.get("APPS_SYNC_VERBOSITY", "0")) if env.get("APPS_SYNC_VERBOSITY", "0").isdigit() else 0
 
 DATATYPE_CHECK: dict = {
     "int": lambda x: isinstance(x, int),
@@ -166,12 +168,14 @@ def check_item(data: dict, schema: dict) -> bool:
         
         # check if this is a valid column
         if not column_name in schema:
-            print("col name invalid")
+            if VERBOSITY_LEVEL > 0:
+                print(f"Column \"{column_name}\" is not within the table's schema.")
             return False
         
         # check if the datatype is correct
         if not DATATYPE_CHECK[schema[column_name]["datatype"]](data[display_column_name]):
-            print(f"bad datatype {data[display_column_name]} {schema[column_name]["datatype"]}")
+            if VERBOSITY_LEVEL > 0:
+                print(f"Bad datatype {data[display_column_name]} {schema[column_name]["datatype"]}")
             return False
         
         # @TODO min/max, etc. checks
