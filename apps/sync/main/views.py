@@ -266,11 +266,11 @@ def index(request: HttpRequest) -> HttpResponse:
         # look for the target table
         url_chunks: List[str] = request.path.split("/")
         if len(url_chunks) != 4:
-            return HttpResponseBadRequest()
+            return HttpResponseBadRequest("Bad POST URL.")
         db_name = to_lower_snake_case(url_chunks[2])
         table_name = to_lower_snake_case(url_chunks[3])
         if not db_name in databases or not table_name in databases[db_name]:
-            return HttpResponseBadRequest()
+            return HttpResponseBadRequest(f"Database \"{db_name}\" was not found.")
         table: dict = databases[db_name][table_name]
 
         
@@ -278,7 +278,7 @@ def index(request: HttpRequest) -> HttpResponse:
         data = json.loads(request.body)
 
         if not data or "data" not in data:
-            return HttpResponseBadRequest()
+            return HttpResponseBadRequest("No data supplied.")
 
         # make a copy of data with snake_cased keys
         f_data = {
@@ -291,7 +291,7 @@ def index(request: HttpRequest) -> HttpResponse:
         
         
         if not check_entry(f_data, table):
-            return HttpResponseBadRequest()
+            return HttpResponseBadRequest("The given entry does not conform to the schema.")
         # END - validate schema
         
         # store data
