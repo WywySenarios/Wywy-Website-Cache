@@ -1,1 +1,1 @@
-from sync_app import queue_sync
+from sync.sync import queue_sync
