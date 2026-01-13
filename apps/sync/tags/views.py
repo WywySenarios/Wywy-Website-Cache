@@ -7,6 +7,7 @@ from os import environ as env
 
 from schema import databases
 from utils import chunkify_url, to_lower_snake_case
+from db import store_raw_entry
 
 # Create your views here.
 def index(request: HttpRequest) -> HttpResponse:
@@ -38,7 +39,59 @@ def index(request: HttpRequest) -> HttpResponse:
             row_factory=dict_row
         ) as conn:
             with conn.cursor() as cur:
+                # @TODO change to tag_aliases
                 cur.execute(sql.SQL("SELECT * FROM {table_name};").format(table_name=sql.Identifier(f"{table_name}_tag_names")))
                 return JsonResponse({"tags": cur.fetchall()})
+    elif (request.method == "POST"):
+        if len(url_chunks) < 4:
+            return HttpResponseBadRequest("Invalid URL. Expecting tags/[databaseName]/[tableName]/[tags/aliases].")
+        
+        command = url_chunks[3]
 
-    return HttpResponseBadRequest()
+        # make sure the body has content
+        data = json.loads(request.body)
+        if not data:
+            return HttpResponseBadRequest("Empty or invalid body.")
+
+        match command:
+            case "tags":
+                # validate input
+                if "tag_name" not in data:
+                    return HttpResponseBadRequest("New tag name not provided.")
+                if not isinstance(data["tag_name"], str):
+                    return HttpResponseBadRequest("The new tag name must be a string.")
+                if len(list(data)) > 1:
+                    return HttpResponseBadRequest("Erroneous information was provided.")
+
+                # store data
+                next_id: int | None = get_local_next_id()
+
+                if next_id is None:
+                    return HttpResponseServerError("Could not find the next ID. Database anomaly?")
+
+                # @TODO atomicity
+                store_raw_entry(database_name, f"{table_name}_tag_names", data)
+
+                # automatically add the related alias
+                store_raw_entry(database_name, f"{table_name}_tag_aliases", {
+                    "alias": data["tag_name"],
+                    "tag_id": next_id
+                })
+            case "aliases":
+                # validate input
+                if "alias" not in data:
+                    return HttpResponseBadRequest("New alias name not provided.")
+                if not isinstance(data["alias"], str):
+                    return HttpResponseBadRequest("The new alias name must be a string.")
+                if "tag_id" not in data:
+                    return HttpResponseBadRequest("Related ID not provided.")
+                if not isinstance(data["tag_id"], int) or data["tag_id"] <= 0:
+                    return HttpResponseBadRequest("The related tag ID must be a positive integer.")
+                if len(list(data)) > 2:
+                    return HttpResponseBadRequest("Erroneous information was provided.")
+                store_raw_entry(database_name, f"{table_name}_tag_aliases", data)
+            case _:
+                return HttpResponseBadRequest("Invalid command. Expecting \"tags\" or \"aliases\".")
+
+
+    return HttpResponseBadRequest("Bad HTTP method. Expects GET or POST.")
