@@ -3,6 +3,29 @@ from psycopg import sql
 import requests
 from typing import List
 
+def get_local_next_id(database_name: str, table_name: str) -> int | None:
+    """Gets the next available ID (assuming the table has a SERIAL PRIMARY KEY column called "id").
+
+    Args:
+        database_name (str): The database that contains the target table.
+        table_name (str): The target table name.
+
+    Returns:
+        int | None: None on failure. Otherwise the next avialable ID.
+    """
+    with psycopg.connect(
+            dbname=target_database_name,
+            user=env.get("POSTGRES_USER", "postgres"),
+            password=env.get("POSTGRES_PASSWORD", "password"),
+            host="wywywebsite-cache_database",
+            port=env.get("POSTGRES_PORT", 5433)
+        ) as data_conn:
+        with data_conn.cursor() as cur:
+            cur.execute(sql.SQL("SELECT MAX(id) AS highest_id FROM {table_name};").format(table_name=sql.Identifier(table_name)))
+            next_id: int | None = next(cur)[0]
+            if next_id is None:
+                return None
+            return next_id
 
 def get_next_id(db_name: str, table_name: str) -> int:
     with open("/run/secrets/admin", "r") as f:
@@ -78,3 +101,34 @@ def store_entry(data_conn, info_conn, item: dict, schema: dict, target_database_
     # record the main entry
     data_conn.execute(sql.SQL("INSERT INTO {table} ({fields}) VALUES({placeholders});").format(table=sql.Identifier(target_table_name), fields=sql.SQL(', ').join(map(sql.Identifier, cols)),placeholders=sql.SQL(', ').join(sql.Placeholder() * len(values))), values).close()
     info_conn.execute("INSERT INTO sync_status (table_name, parent_table_name, table_type, db_name, entry_id, sync_timestamp, status) VALUES (%s, %s, %s, %s, %s, NULL, NULL);", (target_table_name, target_parent_table_name, target_table_type, target_database_name, next_id)).close()
+
+def store_raw_entry(target_database_name: str, target_table_name: str, item: dict) -> None:
+    """Stores an entry, assuming that item is valid, does not contain extra columns, and is not missing any columns.
+
+    Args:
+        target_database_name (str): _description_
+        target_table_name (str): _description_
+        item (dict): _description_
+    """
+    columns: List[str] = []
+    values: list = []
+
+    for column_name in items:
+        columns.append(column_name)
+        values.append(items[column_name])
+
+    with psycopg.connect(
+            dbname=target_database_name,
+            user=env.get("POSTGRES_USER", "postgres"),
+            password=env.get("POSTGRES_PASSWORD", "password"),
+            host="wywywebsite-cache_database",
+            port=env.get("POSTGRES_PORT", 5433)
+        ) as data_conn, psycopg.connect(
+            dbname="info",
+            user=env.get("POSTGRES_USER", "postgres"),
+            password=env.get("POSTGRES_PASSWORD", "password"),
+            host="wywywebsite-cache_database",
+            port=env.get("POSTGRES_PORT", 5433)
+        ) as info_conn:
+        data_conn.execute(sql.SQL("INSERT INTO {table} ({fields}) VALUES({placeholders});").format(table=sql.Identifier(target_table_name), fields=sql.SQL(', ').join(map(sql.Identifier, columns)),placeholders=sql.SQL(', ').join(sql.Placeholder() * len(values))), values).close()
+        info_conn.execute("INSERT INTO sync_status (table_name, parent_table_name, table_type, db_name, entry_id, sync_timestamp, status) VALUES (%s, %s, %s, %s, %s, NULL, NULL);", (target_table_name, target_parent_table_name, target_table_type, target_database_name, next_id)).close()
