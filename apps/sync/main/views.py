@@ -78,7 +78,8 @@ def sync() -> None:
             payload = dict(next(target_record_cur))
             for k, v in payload.items():
                 if v is None:
-                    payload[k] = f"''"
+                    print(f"Sync failed. Anomalous item: ({db_name}/{table_name} ({parent_table_name})): {payload}")
+                    return
                 elif isinstance(v, datetime.datetime) or isinstance(v, datetime.date) or isinstance(v, datetime.time):
                     payload[k] =  f"'{v.isoformat()}'"
                 elif isinstance(v, str):
