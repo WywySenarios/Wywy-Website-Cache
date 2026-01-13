@@ -10,25 +10,24 @@ from utils import chunkify_url, to_lower_snake_case
 
 # Create your views here.
 def index(request: HttpRequest) -> HttpResponse:
+    url_chunks = chunkify_url(request.path)
+
+    if len(url_chunks < 3):
+        return HttpResponseBadRequest("Bad URL. Expecting URL in the form tags/[databaseName]/[tableName]/...")
+
+    database_name = to_lower_snake_case(url_chunks[1])
+    table_name = to_lower_snake_case(url_chunks[2])
+
+    if database_name not in databases:
+        return HttpResponseBadRequest(f"Database \"{database_name}\" was not found.")
+    if table_name not in databases[database_name]:
+        return HttpResponseBadRequest(f"Table \"{database_name}/{table_name}\" was not found.")
+
+    if "tagging" not in databases[database_name][table_name] or not databases[database_name][table_name]["tagging"] == True:
+        return HttpResponseBadRequest(f"Tagging is not enabled on table \"{database_name}/{table_name}\"")
+    
     # only accept GET requests
     if (request.method == "GET"):
-        url_chunks = chunkify_url(request.path, 3)
-
-        # expect "tags/[database_name]/[table_name]"
-        if len(url_chunks) < 3:
-            return HttpResponseBadRequest()
-        
-        database_name = to_lower_snake_case(url_chunks[1])
-        table_name = to_lower_snake_case(url_chunks[2])
-
-        # lf the requested table
-        if not database_name in databases or not table_name in databases[database_name]:
-            return HttpResponseBadRequest()
-
-        # check if this table has tagging enabled
-        if "tagging" not in databases[database_name][table_name] or not databases[database_name][table_name]:
-            return HttpResponseBadRequest()
-
         # get results
         with psycopg.connect(
             dbname=database_name,
