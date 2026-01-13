@@ -289,15 +289,34 @@ def index(request: HttpRequest) -> HttpResponse:
         if not data or "data" not in data:
             return HttpResponseBadRequest("No data supplied.")
 
+        if not isinstance(data["data"], dict):
+            return HttpResponse("The data section must be composed of JSON objects.")
+
         # make a copy of data with snake_cased keys
-        f_data = {
-            to_lower_snake_case(section_name): (
-                {to_lower_snake_case(key): value for key, value in section_data.items()} if isinstance(section_data, dict) else
-                [to_lower_snake_case(item) if isinstance(item, str) else item for item in section_data]
-            )
-            for section_name, section_data in data.items()
+        f_data: dict = {
+            "data": {
+                to_lower_snake_case(key): value
+                for key, value in data["data"].items()
+            }
         }
+
+        if "tags" in data:
+            f_data["tags"] = data["tags"]
         
+        if "descriptors" in data:
+            if not isinstance(data["descriptors"], dict):
+                return HttpResponseBadRequest("Descriptors must be supplied in a JSON object with the key as the descriptor type and the value as an array of descriptors of the corresponding type. The arrays may be empty.")
+
+            try:
+                f_data["descriptors"] = {
+                    to_lower_snake_case(descriptor_type): list(map(lambda x: {
+                        to_lower_snake_case(key): value
+                        for key, value in x.items()
+                    } if isinstance(x, dict) else None, descriptor_array))
+                    for descriptor_type, descriptor_array in data["descriptors"].items()
+                }
+            except:
+                return HttpResponseBadRequest("Failed to parse the supplied descriptors.")
         
         if not check_entry(f_data, table):
             return HttpResponseBadRequest("The given entry does not conform to the schema.")
