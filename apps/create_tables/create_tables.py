@@ -300,7 +300,7 @@ def enforce_reserved_columns(conn, table_schema: dict) -> bool:
                 cur.execute(sql.SQL("ALTER TABLE {} ADD CONSTRAINT {} FOREIGN KEY (primary_tag) REFERENCES {}(id)").format(
                     sql.Identifier(table_name),
                     sql.Identifier("fk_primary_tags"),
-                    sql.Identifier(f"{table_name}_tags"),
+                    sql.Identifier(f"{table_name}_tag_names"),
                 ))
         else: # if the schema does not specify tagging or disables tagging
             if column_exists(conn, table_name, "primary_tag"):
