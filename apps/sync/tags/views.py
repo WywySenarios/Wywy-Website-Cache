@@ -44,7 +44,7 @@ def index(request: HttpRequest) -> HttpResponse:
                 return JsonResponse({"tags": cur.fetchall()})
     elif (request.method == "POST"):
         if len(url_chunks) < 4:
-            return HttpResponseBadRequest("Invalid URL. Expecting tags/[databaseName]/[tableName]/[tags/aliases].")
+            return HttpResponseBadRequest("Invalid URL. Expecting tags/[databaseName]/[tableName]/[tag_names/tag_aliases].")
         
         command = url_chunks[3]
 
@@ -55,6 +55,21 @@ def index(request: HttpRequest) -> HttpResponse:
 
         match command:
             case "tags":
+                # validate input
+                if "entry_id" not in data:
+                    return HttpResponseBadRequest("The entry ID was not provided.")
+                if not isinstance(data["entry_id"], int) or data["entry_id"] <= 0:
+                    return HttpResponseBadRequest("The ID of the entry that is being tagged must be a postivie integer.")
+                if "tag_id" not in data:
+                    return HttpResponseBadRequest("Related ID not provided.")
+                if not isinstance(data["tag_id"], int) or data["tag_id"] <= 0:
+                    return HttpResponseBadRequest("The related tag ID must be a positive integer.")
+                if len(list(data)) > 2:
+                    return HttpResponseBadRequest("Erroneous information was provided.")
+
+                # store data
+                store_raw_entry(database_name, f"{table_name}_tags", data)
+            case "tag_names":
                 # validate input
                 if "tag_name" not in data:
                     return HttpResponseBadRequest("New tag name not provided.")
@@ -77,7 +92,7 @@ def index(request: HttpRequest) -> HttpResponse:
                     "alias": data["tag_name"],
                     "tag_id": next_id
                 })
-            case "aliases":
+            case "tag_aliases":
                 # validate input
                 if "alias" not in data:
                     return HttpResponseBadRequest("New alias name not provided.")
@@ -90,8 +105,21 @@ def index(request: HttpRequest) -> HttpResponse:
                 if len(list(data)) > 2:
                     return HttpResponseBadRequest("Erroneous information was provided.")
                 store_raw_entry(database_name, f"{table_name}_tag_aliases", data)
+            case "tag_groups":
+                # validate input
+                if "group_name" not in data:
+                    return HttpResponseBadRequest("Related group name not provided.")
+                if not isinstance(data["alias"], str):
+                    return HttpResponseBadRequest("The related group name must be a string.")
+                if "tag_id" not in data:
+                    return HttpResponseBadRequest("The ID of the tag being grouped was not provided.")
+                if not isinstance(data["tag_id"], int) or data["tag_id"] <= 0:
+                    return HttpResponseBadRequest("The ID of the tag being grouped must be a positive integer.")
+                if len(list(data)) > 2:
+                    return HttpResponseBadRequest("Erroneous information was provided.")
+                store_raw_entry(database_name, f"{table_name}_tag_groups", data)
             case _:
-                return HttpResponseBadRequest("Invalid command. Expecting \"tags\" or \"aliases\".")
+                return HttpResponseBadRequest("Invalid URL. Expecting tags/[databaseName]/[tableName]/[tag_names/tag_aliases].")
 
 
     return HttpResponseBadRequest("Bad HTTP method. Expects GET or POST.")
