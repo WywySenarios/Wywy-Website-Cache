@@ -97,7 +97,7 @@ def sync() -> None:
                 status = "failed"
                 num_failures += 1
             else:
-                status="updated"
+                status = "added"
                 num_successes += 1
             finally:
                 info_conn.execute("""
