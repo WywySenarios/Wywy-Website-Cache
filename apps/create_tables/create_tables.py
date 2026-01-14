@@ -312,7 +312,7 @@ TAGGING_TABLE_STATEMENTS: dict[TAGGING_TABLE_NAMES, sql.SQL] = {
     "tag_names": sql.SQL("""
                          CREATE TABLE {} (
                             id SERIAL PRIMARY KEY,
-                            tag_name TEXT NOT NULL
+                            tag_name UNIQUE TEXT NOT NULL
                          );
                          """),
     "tags": sql.SQL("""
