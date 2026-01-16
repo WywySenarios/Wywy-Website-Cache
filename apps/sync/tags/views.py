@@ -138,5 +138,7 @@ def index(request: HttpRequest) -> HttpResponse:
             case _:
                 return HttpResponseBadRequest("Invalid URL. Expecting tags/[databaseName]/[tableName]/[tag_names/tag_aliases].")
 
+        return HttpResponse()
+
 
     return HttpResponseBadRequest("Bad HTTP method. Expects GET or POST.")
