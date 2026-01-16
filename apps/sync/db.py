@@ -14,7 +14,7 @@ def get_local_next_id(database_name: str, table_name: str) -> int | None:
         int | None: None on failure. Otherwise the next avialable ID.
     """
     with psycopg.connect(
-            dbname=target_database_name,
+            dbname=database_name,
             user=env.get("POSTGRES_USER", "postgres"),
             password=env.get("POSTGRES_PASSWORD", "password"),
             host="wywywebsite-cache_database",
@@ -121,9 +121,9 @@ def store_raw_entry(item: dict, target_database_name: str, target_table_name: st
     columns: List[str] = ["id"]
     values: list = [id]
 
-    for column_name in items:
+    for column_name in item:
         columns.append(column_name)
-        values.append(items[column_name])
+        values.append(item[column_name])
 
     with psycopg.connect(
             dbname=target_database_name,
@@ -139,4 +139,4 @@ def store_raw_entry(item: dict, target_database_name: str, target_table_name: st
             port=env.get("POSTGRES_PORT", 5433)
         ) as info_conn:
         data_conn.execute(sql.SQL("INSERT INTO {table} ({fields}) VALUES({placeholders});").format(table=sql.Identifier(target_table_name), fields=sql.SQL(', ').join(map(sql.Identifier, columns)),placeholders=sql.SQL(', ').join(sql.Placeholder() * len(values))), values).close()
-        info_conn.execute("INSERT INTO sync_status (table_name, parent_table_name, table_type, db_name, entry_id, sync_timestamp, status) VALUES (%s, %s, %s, %s, %s, NULL, NULL);", (target_table_name, target_parent_table_name, target_table_type, target_database_name, next_id)).close()
+        info_conn.execute("INSERT INTO sync_status (table_name, parent_table_name, table_type, db_name, entry_id, sync_timestamp, status) VALUES (%s, %s, %s, %s, %s, NULL, NULL);", (target_table_name, target_parent_table_name, target_table_type, target_database_name, id)).close()
