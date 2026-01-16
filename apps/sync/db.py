@@ -2,6 +2,7 @@ import psycopg
 from psycopg import sql
 import requests
 from typing import List
+from os import environ as env
 
 def get_local_next_id(database_name: str, table_name: str) -> int | None:
     """Gets the next available ID (assuming the table has a SERIAL PRIMARY KEY column called "id").
