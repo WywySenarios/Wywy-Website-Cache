@@ -55,6 +55,10 @@ def sync() -> None:
             table_name: str = target[1]
             parent_table_name: str = target[2]
             table_type: str = target[3]
+            id_column_name: str = "id"
+            match(table_type):
+                case "tag_aliases":
+                    id_column_name = "alias"
             db_name: str = target[4]
             target_id: str = target[5]
             
@@ -67,8 +71,8 @@ def sync() -> None:
                 port=env.get("POSTGRES_PORT", 5433), row_factory=dict_row
             )
             target_record_cur = target_record_conn.execute(sql.SQL("""
-                                    SELECT * FROM {table} WHERE "id"=%s;
-                                    """).format(table=sql.Identifier(table_name)), (target_id,))
+                                    SELECT * FROM {table} WHERE {id_column_name}=%s;
+                                    """).format(table=sql.Identifier(table_name), id_column_name=sql.Identifier(id_column_name)), (target_id,))
             
             # @TODO check if the target already exists
             
@@ -83,8 +87,9 @@ def sync() -> None:
                     payload[k] =  f"'{v.isoformat()}'"
                 elif isinstance(v, str):
                     payload[k] = f"'{v}'"
-            # remove id because the sql-receptionist will take care of that.
-            del payload["id"]
+            # remove numerical id because the sql-receptionist will take care of that.
+            if "id" in payload:
+                del payload["id"]
             status: None | Literal['updated', 'failed'] = None
             try:
                 with open("/run/secrets/admin", "r") as f:
