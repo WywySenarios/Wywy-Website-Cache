@@ -102,16 +102,24 @@ def store_entry(data_conn, info_conn, item: dict, schema: dict, target_database_
     data_conn.execute(sql.SQL("INSERT INTO {table} ({fields}) VALUES({placeholders});").format(table=sql.Identifier(target_table_name), fields=sql.SQL(', ').join(map(sql.Identifier, cols)),placeholders=sql.SQL(', ').join(sql.Placeholder() * len(values))), values).close()
     info_conn.execute("INSERT INTO sync_status (table_name, parent_table_name, table_type, db_name, entry_id, sync_timestamp, status) VALUES (%s, %s, %s, %s, %s, NULL, NULL);", (target_table_name, target_parent_table_name, target_table_type, target_database_name, next_id)).close()
 
-def store_raw_entry(target_database_name: str, target_table_name: str, item: dict) -> None:
+def store_raw_entry(item: dict, target_database_name: str, target_table_name: str, target_parent_table_name: str, target_table_type: str, id: int | None = None) -> None:
     """Stores an entry, assuming that item is valid, does not contain extra columns, and is not missing any columns.
 
     Args:
-        target_database_name (str): _description_
-        target_table_name (str): _description_
-        item (dict): _description_
+        item (dict): The item whose data will be enter.
+        taregt_database_name (str): The name of the target database.
+        target_table_name (str): The name of the target table.
+        target_parent_table_name (str): The name of the target table's parent.
+        target_table_type (str): The target table's type.
+        id (int): The ID that the new entry will have.
     """
-    columns: List[str] = []
-    values: list = []
+    if id is None:
+        id = get_local_next_id(target_database_name, target_table_name)
+        if id is None:
+            id = 1
+
+    columns: List[str] = ["id"]
+    values: list = [id]
 
     for column_name in items:
         columns.append(column_name)
