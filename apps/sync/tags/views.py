@@ -13,7 +13,7 @@ from db import store_raw_entry
 def index(request: HttpRequest) -> HttpResponse:
     url_chunks = chunkify_url(request.path)
 
-    if len(url_chunks < 3):
+    if len(url_chunks) < 3:
         return HttpResponseBadRequest("Bad URL. Expecting URL in the form tags/[databaseName]/[tableName]/...")
 
     database_name = to_lower_snake_case(url_chunks[1])
