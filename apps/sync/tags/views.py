@@ -82,8 +82,10 @@ def index(request: HttpRequest) -> HttpResponse:
                 # store data
                 next_id: int | None = get_local_next_id()
 
+                # assume the table is empty rather than there being a database anomaly
                 if next_id is None:
-                    return HttpResponseServerError("Could not find the next ID. Database anomaly?")
+                    next_id = 1
+                    # return HttpResponseServerError("Could not find the next ID. Database anomaly?")
 
                 # @TODO atomicity
                 store_raw_entry(data, database_name, f"{table_name}_tag_names", table_name, "tag_names")
