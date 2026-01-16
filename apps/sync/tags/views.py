@@ -4,10 +4,11 @@ import psycopg
 from psycopg.rows import dict_row
 from psycopg import sql
 from os import environ as env
+import json
 
 from schema import databases
 from utils import chunkify_url, to_lower_snake_case
-from db import store_raw_entry
+from db import store_raw_entry, get_local_next_id
 
 # Create your views here.
 def index(request: HttpRequest) -> HttpResponse:
