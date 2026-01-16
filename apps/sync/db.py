@@ -44,7 +44,7 @@ def store_entry(data_conn, info_conn, item: dict, schema: dict, target_database_
     Args:
         data_conn (_type_): Connection to the target database.
         info_conn (_type_): Connection to the info database.
-        item (dict): The item whose data will be entere.
+        item (dict): The item whose data will be enter.
         schema (dict): The column schema corresponding to the entry.
         taregt_database_name (str): The name of the target database.
         target_table_name (str): The name of the target table.
