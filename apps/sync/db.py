@@ -12,7 +12,7 @@ def get_local_next_id(database_name: str, table_name: str) -> int | None:
         table_name (str): The target table name.
 
     Returns:
-        int | None: None on failure. Otherwise the next avialable ID.
+        int: Returns the next available ID.
     """
     with psycopg.connect(
             dbname=database_name,
@@ -25,7 +25,7 @@ def get_local_next_id(database_name: str, table_name: str) -> int | None:
             cur.execute(sql.SQL("SELECT MAX(id) AS highest_id FROM {table_name};").format(table_name=sql.Identifier(table_name)))
             next_id: int | None = next(cur)[0]
             if next_id is None:
-                return None
+                return 1
             return next_id
 
 def get_next_id(db_name: str, table_name: str) -> int:
