@@ -80,7 +80,7 @@ def index(request: HttpRequest) -> HttpResponse:
                     return HttpResponseBadRequest("Erroneous information was provided.")
 
                 # store data
-                next_id: int | None = get_local_next_id()
+                next_id: int | None = get_local_next_id(database_name, f"{table_name}_tag_names")
 
                 # assume the table is empty rather than there being a database anomaly
                 if next_id is None:
