@@ -7,7 +7,7 @@ from os import environ as env
 import json
 
 from schema import databases
-from utils import chunkify_url, to_lower_snake_case
+from utils import chunkify_url, to_lower_snake_case, remove_quotation
 from db import store_raw_entry, get_local_next_id
 
 # Create your views here.
@@ -80,6 +80,9 @@ def index(request: HttpRequest) -> HttpResponse:
                     return HttpResponseBadRequest("The new tag name must be a string.")
                 if len(list(data)) > 1:
                     return HttpResponseBadRequest("Erroneous information was provided.")
+                
+                # unquote necessary fields
+                data["tag_name"] = remove_quotation(data["tag_name"])
 
                 # store data
                 next_id: int = get_local_next_id(database_name, f"{table_name}_tag_names")

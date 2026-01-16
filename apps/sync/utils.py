@@ -33,6 +33,17 @@ def to_snake_case(target: str) -> str:
     
     return output[:-1] # remove trailing underscore with "[:-1]"
 
+def remove_quotation(target: str) -> str:
+    """Returns a copy of the target string that is not singly quoted.
+
+    Args:
+        target (str): The string to unquote.
+
+    Returns:
+        str: An unquoted copy of the target string.
+    """
+    return target[:-1][1:]
+
 def chunkify_url(url: str, max_chunks: int = -1) -> List[str]:
     """Breaks a URL into chunks.
 
