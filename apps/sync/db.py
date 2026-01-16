@@ -103,7 +103,7 @@ def store_entry(data_conn, info_conn, item: dict, schema: dict, target_database_
     data_conn.execute(sql.SQL("INSERT INTO {table} ({fields}) VALUES({placeholders});").format(table=sql.Identifier(target_table_name), fields=sql.SQL(', ').join(map(sql.Identifier, cols)),placeholders=sql.SQL(', ').join(sql.Placeholder() * len(values))), values).close()
     info_conn.execute("INSERT INTO sync_status (table_name, parent_table_name, table_type, db_name, entry_id, sync_timestamp, status) VALUES (%s, %s, %s, %s, %s, NULL, NULL);", (target_table_name, target_parent_table_name, target_table_type, target_database_name, next_id)).close()
 
-def store_raw_entry(item: dict, target_database_name: str, target_table_name: str, target_parent_table_name: str, target_table_type: str, id: int | None = None) -> None:
+def store_raw_entry(item: dict, target_database_name: str, target_table_name: str, target_parent_table_name: str, target_table_type: str, id_column_name: str = "id") -> None:
     """Stores an entry, assuming that item is valid, does not contain extra columns, and is not missing any columns.
 
     Args:
@@ -114,13 +114,11 @@ def store_raw_entry(item: dict, target_database_name: str, target_table_name: st
         target_table_type (str): The target table's type.
         id (int): The ID that the new entry will have.
     """
-    if id is None:
-        id = get_local_next_id(target_database_name, target_table_name)
-        if id is None:
-            id = 1
 
-    columns: List[str] = ["id"]
-    values: list = [id]
+    columns: List[str] = []
+    values: list = []
+    
+    id: int | str = item[id_column_name]
 
     for column_name in item:
         columns.append(column_name)

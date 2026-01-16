@@ -69,7 +69,9 @@ def index(request: HttpRequest) -> HttpResponse:
                     return HttpResponseBadRequest("Erroneous information was provided.")
 
                 # store data
-                store_raw_entry(data, database_name, f"{table_name}_tags", table_name, "tags")
+                store_raw_entry({
+                    "id": get_local_next_id(database_name, f"{table_name}_tags"),
+                    **data}, database_name, f"{table_name}_tags", table_name, "tags")
             case "tag_names":
                 # validate input
                 if "tag_name" not in data:
@@ -83,13 +85,16 @@ def index(request: HttpRequest) -> HttpResponse:
                 next_id: int = get_local_next_id(database_name, f"{table_name}_tag_names")
 
                 # @TODO atomicity
-                store_raw_entry(data, database_name, f"{table_name}_tag_names", table_name, "tag_names")
+                store_raw_entry({
+                    "id": next_id,
+                    **data
+                    }, database_name, f"{table_name}_tag_names", table_name, "tag_names")
 
                 # automatically add the related alias
                 store_raw_entry({
                     "alias": data["tag_name"],
                     "tag_id": next_id
-                }, database_name, f"{table_name}_tag_aliases", table_name, "tag_aliases")
+                }, database_name, f"{table_name}_tag_aliases", table_name, "tag_aliases", id_column_name="alias")
             case "tag_aliases":
                 # validate input
                 if "alias" not in data:
@@ -102,7 +107,11 @@ def index(request: HttpRequest) -> HttpResponse:
                     return HttpResponseBadRequest("The related tag ID must be a positive integer.")
                 if len(list(data)) > 2:
                     return HttpResponseBadRequest("Erroneous information was provided.")
-                store_raw_entry(data, database_name, f"{table_name}_tag_aliases", table_name, "tag_aliases")
+                
+                # unquote necessary fields
+                data["alias"] = remove_quotation(data["alias"])
+                
+                store_raw_entry(data, database_name, f"{table_name}_tag_aliases", table_name, "tag_aliases", id_column_name="alias")
             case "tag_groups":
                 # validate input
                 if "group_name" not in data:
@@ -115,7 +124,14 @@ def index(request: HttpRequest) -> HttpResponse:
                     return HttpResponseBadRequest("The ID of the tag being grouped must be a positive integer.")
                 if len(list(data)) > 2:
                     return HttpResponseBadRequest("Erroneous information was provided.")
-                store_raw_entry(data, database_name, f"{table_name}_tag_groups", table_name, "tag_groups")
+                
+                # unquote necessary fields
+                data["group_name"] = remove_quotation(data["group_name"])
+                
+                store_raw_entry({
+                    "id": get_local_next_id(database_name, f"{table_name}_tag_groups"),
+                    **data
+                    }, database_name, f"{table_name}_tag_groups", table_name, "tag_groups")
             case _:
                 return HttpResponseBadRequest("Invalid URL. Expecting tags/[databaseName]/[tableName]/[tag_names/tag_aliases].")
 
