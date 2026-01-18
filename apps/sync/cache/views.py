@@ -79,3 +79,7 @@ def index(request: HttpRequest) -> HttpResponse:
         else:
             return JsonResponse(cache_values[db_name][table_name])
     return HttpResponseBadRequest()
+
+@ensure_csrf_cookie
+def csrf(request: HttpRequest):
+    return JsonResponse({"detail": "CSRF cookie set"})
