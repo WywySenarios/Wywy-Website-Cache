@@ -153,14 +153,6 @@ data:
           #   entrytype: duration textbox
           #   description: An estimate related to the event length. Positive values represent how long the event occured for. Negative values represent how long the event did not actively occur inside the respective time interval.
         descriptors:
-          - name: Maintenance
-            schema:
-              - name: Maintenance Item
-                datatype: enum
-                entrytype: search-select
-                values:
-                  - # subject to presumably intense debate
-
           - name: Bathroom
             schema:
               - name: Bathroom Type
