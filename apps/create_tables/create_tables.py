@@ -133,7 +133,7 @@ def add_info_table() -> None:
                     $$;
 
                     CREATE TABLE sync_status (
-                        id BIGSERIAL PRIMARY KEY,
+                        id SERIAL PRIMARY KEY,
                         table_name TEXT NOT NULL,
                         parent_table_name TEXT NOT NULL,
                         table_type TEXT NOT NULL,
