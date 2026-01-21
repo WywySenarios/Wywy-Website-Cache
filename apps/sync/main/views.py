@@ -14,7 +14,7 @@ import datetime
 from utils import to_lower_snake_case, get_env_int
 from schema import check_entry, databases
 from sync.sync import queue_sync
-from db import get_next_id, store_entry
+from db import store_entry
 
 # peak at config
 with open("config.yml", "r") as file:

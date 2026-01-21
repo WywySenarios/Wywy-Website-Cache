@@ -4,40 +4,6 @@ import requests
 from typing import List
 from os import environ as env
 
-def get_local_next_id(database_name: str, table_name: str) -> int | None:
-    """Gets the next available ID (assuming the table has a SERIAL PRIMARY KEY column called "id").
-
-    Args:
-        database_name (str): The database that contains the target table.
-        table_name (str): The target table name.
-
-    Returns:
-        int: Returns the next available ID.
-    """
-    with psycopg.connect(
-            dbname=database_name,
-            user=env.get("POSTGRES_USER", "postgres"),
-            password=env.get("POSTGRES_PASSWORD", "password"),
-            host="wywywebsite-cache_database",
-            port=env.get("POSTGRES_PORT", 5433)
-        ) as data_conn:
-        with data_conn.cursor() as cur:
-            cur.execute(sql.SQL("SELECT MAX(id) AS highest_id FROM {table_name};").format(table_name=sql.Identifier(table_name)))
-            next_id: int | None = next(cur)[0]
-            if next_id is None:
-                return 1
-            return next_id
-
-def get_next_id(db_name: str, table_name: str) -> int:
-    with open("/run/secrets/admin", "r") as f:
-        response = requests.get(config["referenceUrls"]["db"] + "/" + db_name + "/" + table_name + "/get_next_id", cookies={
-            "username": "admin",
-            "password": f.read()
-        }, timeout=5)
-        response.raise_for_status()
-        
-        return int(response.text)
-
 def store_entry(data_conn, info_conn, item: dict, schema: dict, target_database_name: str, target_table_name: str, target_parent_table_name: str, target_table_type: str, id_column_name: str = "id", tagging = False) -> str | None:
     """Stores an entry in both the respective data table and the info/sync table.
 
