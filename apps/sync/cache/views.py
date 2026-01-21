@@ -1,7 +1,7 @@
 import json
 from typing import List
 from django.http import HttpRequest, HttpResponse, HttpResponseBadRequest, JsonResponse
-from django.views.decorators.csrf import ensure_csrf_cookie
+from django.views.decorators.csrf import ensure_csrf_cookie, get_token
 import yaml
 
 from schema import check_item
@@ -79,3 +79,11 @@ def index(request: HttpRequest) -> HttpResponse:
         else:
             return JsonResponse(cache_values[db_name][table_name])
     return HttpResponseBadRequest()
+
+@ensure_csrf_cookie
+def csrf(request: HttpRequest):
+    csrf_token = get_token(request)  # Generates/gets the CSRF token
+    return JsonResponse({
+        "csrfToken": csrf_token,      # Include the token in JSON
+        "detail": "CSRF cookie set"
+    })
