@@ -106,10 +106,10 @@ def sync() -> None:
                 num_successes += 1
             finally:
                 info_conn.execute("""
-                                  UPDATE sync_status
-                                  SET status=%s, sync_timestamp=%s
-                                  WHERE "id"=%s
-                                  """, (status, datetime.datetime.now().isoformat(), sync_status_id,))
+                                UPDATE sync_status
+                                SET status=%s, sync_timestamp=%s, remote_id=%s
+                                WHERE "id"=%s;
+                                """, (status, datetime.datetime.now().isoformat(), remote_id, sync_status_id,)).close()
             target_record_cur.close()
         targets_cur.close()
         
