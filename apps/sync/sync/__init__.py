@@ -1,1 +1,0 @@
-from sync.sync import queue_sync

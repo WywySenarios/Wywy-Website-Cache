@@ -8,6 +8,7 @@ import json
 
 from schema import databases
 from utils import chunkify_url, to_lower_snake_case, remove_quotation
+from sync.sync import queue_sync
 from db import store_raw_entry, get_local_next_id
 
 # Create your views here.
@@ -138,6 +139,7 @@ def index(request: HttpRequest) -> HttpResponse:
             case _:
                 return HttpResponseBadRequest("Invalid URL. Expecting tags/[databaseName]/[tableName]/[tag_names/tag_aliases].")
 
+        queue_sync()
         return HttpResponse()
 
 
