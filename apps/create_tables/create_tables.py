@@ -126,7 +126,8 @@ def add_info_table() -> None:
                                 'already exists',
                                 'added',
                                 'mismatch',
-                                'failed'
+                                'failed',
+                                'anomalous'
                             );
                         END IF;
                     END
@@ -139,6 +140,7 @@ def add_info_table() -> None:
                         table_type TEXT NOT NULL,
                         db_name TEXT NOT NULL,
                         entry_id TEXT NOT NULL,
+                        remote_id INT NULL,
                         sync_timestamp TIMESTAMPTZ NULL,
                         status sync_status_enum NULL
                     );

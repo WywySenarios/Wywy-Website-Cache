@@ -38,7 +38,7 @@ def get_next_id(db_name: str, table_name: str) -> int:
         
         return int(response.text)
 
-def store_entry(data_conn, info_conn, item: dict, schema: dict, target_database_name: str, target_table_name: str, target_parent_table_name: str, target_table_type: str, tagging = False) -> str | None:
+def store_entry(data_conn, info_conn, item: dict, schema: dict, target_database_name: str, target_table_name: str, target_parent_table_name: str, target_table_type: str, id_column_name: str = "id", tagging = False) -> str | None:
     """Stores an entry in both the respective data table and the info/sync table.
 
     Args:
@@ -50,31 +50,19 @@ def store_entry(data_conn, info_conn, item: dict, schema: dict, target_database_
         target_table_name (str): The name of the target table.
         target_parent_table_name (str): The name of the target table's parent.
         target_table_type (str): The target table's type.
+        id_column_name (str, optional): The ID column's name. Defaults to "id".
         tagging (bool, optional): _description_. Defaults to False.
 
     Raises:
         ValueError: When a schema column is missing from the given entry to record.
 
     Returns:
-        str | None: Returns a string with an error message or None if there was no error.
+        int | str | None: The ID of the newly stored column.
     """
-    # we need our ID to match the production db's ID.
-    # if our DB currently does not have any entries, we need to copy the production DB's next ID. Assume, since there is only one user who can commit data, that this ID is accurate.
-    # fetch the production DB's next ID.
-    # apparently ts is unsafe (with incrementation being different behind the scenes for everyone)
-    next_id_cur = data_conn.execute(sql.SQL("SELECT COALESCE(MAX(id), 0) + 1 AS next_id FROM {table};").format(table=sql.Identifier(target_table_name)))
-    next_id_in_house: int | None = next(next_id_cur)[0]
-    next_id: int
-    if not next_id_in_house:
-        next_id = get_next_id(target_database_name, target_table_name)
-        if not next_id:
-            return HttpResponseServerError()
-    else:
-        next_id = next_id_in_house
-    next_id_cur.close()
+    id: int | str | None = None
     
-    cols: List[str] = ["id"]
-    values: List = [next_id]
+    cols: List[str] = []
+    values: List = []
     
     # populate column names & insert values
     for col_name in schema:
@@ -100,10 +88,16 @@ def store_entry(data_conn, info_conn, item: dict, schema: dict, target_database_
         values.append(item["primary_tag"])
 
     # record the main entry
-    data_conn.execute(sql.SQL("INSERT INTO {table} ({fields}) VALUES({placeholders});").format(table=sql.Identifier(target_table_name), fields=sql.SQL(', ').join(map(sql.Identifier, cols)),placeholders=sql.SQL(', ').join(sql.Placeholder() * len(values))), values).close()
-    info_conn.execute("INSERT INTO sync_status (table_name, parent_table_name, table_type, db_name, entry_id, sync_timestamp, status) VALUES (%s, %s, %s, %s, %s, NULL, NULL);", (target_table_name, target_parent_table_name, target_table_type, target_database_name, next_id)).close()
+    try:
+        data_cur = data_conn.execute(sql.SQL("INSERT INTO {table} ({fields}) VALUES({placeholders}) RETURNING {id_column_name};").format(table=sql.Identifier(target_table_name), fields=sql.SQL(', ').join(map(sql.Identifier, cols)), placeholders=sql.SQL(', ').join(sql.Placeholder() * len(values)), id_column_name=id_column_name), values)
+        id = next(data_cur)[0]
+        info_conn.execute("INSERT INTO sync_status (table_name, parent_table_name, table_type, db_name, entry_id, remote_id, sync_timestamp, status) VALUES (%s, %s, %s, %s, %s, NULL, NULL, NULL);", (target_table_name, target_parent_table_name, target_table_type, target_database_name, next_id)).close()
+    except:
+        data_conn.rollback()
+        info_conn.rollback()
+    return id
 
-def store_raw_entry(item: dict, target_database_name: str, target_table_name: str, target_parent_table_name: str, target_table_type: str, id_column_name: str = "id") -> None:
+def store_raw_entry(item: dict, target_database_name: str, target_table_name: str, target_parent_table_name: str, target_table_type: str, id_column_name: str = "id") -> int | str:
     """Stores an entry, assuming that item is valid, does not contain extra columns, and is not missing any columns.
 
     Args:
@@ -112,13 +106,15 @@ def store_raw_entry(item: dict, target_database_name: str, target_table_name: st
         target_table_name (str): The name of the target table.
         target_parent_table_name (str): The name of the target table's parent.
         target_table_type (str): The target table's type.
-        id (int): The ID that the new entry will have.
+        id_column_name (str, optional): The name of the ID column (PRIMARY KEY).
+        
+    Returns:
+        int | str | None: The ID (PRIMARY KEY) that was pushed to the data table
     """
 
     columns: List[str] = []
     values: list = []
-    
-    id: int | str = item[id_column_name]
+    id: int | str | None = None
 
     for column_name in item:
         columns.append(column_name)
@@ -137,5 +133,12 @@ def store_raw_entry(item: dict, target_database_name: str, target_table_name: st
             host="wywywebsite-cache_database",
             port=env.get("POSTGRES_PORT", 5433)
         ) as info_conn:
-        data_conn.execute(sql.SQL("INSERT INTO {table} ({fields}) VALUES({placeholders});").format(table=sql.Identifier(target_table_name), fields=sql.SQL(', ').join(map(sql.Identifier, columns)),placeholders=sql.SQL(', ').join(sql.Placeholder() * len(values))), values).close()
-        info_conn.execute("INSERT INTO sync_status (table_name, parent_table_name, table_type, db_name, entry_id, sync_timestamp, status) VALUES (%s, %s, %s, %s, %s, NULL, NULL);", (target_table_name, target_parent_table_name, target_table_type, target_database_name, id)).close()
+        try:
+            data_cur = data_conn.execute(sql.SQL("INSERT INTO {table} ({fields}) VALUES({placeholders}) RETURNING {id_column};").format(table=sql.Identifier(target_table_name), fields=sql.SQL(', ').join(map(sql.Identifier, columns)),placeholders=sql.SQL(', ').join(sql.Placeholder() * len(values)), id_column=sql.Identifier(id_column_name)), values)
+            id = next(data_cur)[0]
+            info_conn.execute("INSERT INTO sync_status (table_name, parent_table_name, table_type, db_name, entry_id, remote_id, sync_timestamp, status) VALUES (%s, %s, %s, %s, %s, NULL, NULL, NULL);", (target_table_name, target_parent_table_name, target_table_type, target_database_name, id)).close()
+            data_cur.close()
+        except psycopg.Error as e:
+            data_conn.rollback()
+            info_conn.rollback()
+        return id

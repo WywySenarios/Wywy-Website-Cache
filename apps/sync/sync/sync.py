@@ -91,6 +91,7 @@ def sync() -> None:
             if "id" in payload:
                 del payload["id"]
             status: None | Literal['updated', 'failed'] = None
+            remote_id: str | None = None
             try:
                 with open("/run/secrets/admin", "r") as f:
                     response = requests.post(f"{config["referenceUrls"]["db"]}/{db_name}/{parent_table_name}/{table_type}{f"/{table_name[len(parent_table_name) + 1:][:1 + len(table_type)]}" if table_type != "data" else ""}", timeout=5, cookies={
@@ -98,8 +99,15 @@ def sync() -> None:
                         "password": f.read()
                     }, json=payload)
                     response.raise_for_status()
+                    
+                    remote_id = response.text
+                    
+                    if (not remote_id): raise ValueError("remote_id is not valid.")
             except (requests.HTTPError, requests.exceptions.RequestException) as e:
                 status = "failed"
+                num_failures += 1
+            except ValueError as e:
+                status = "anomalous"
                 num_failures += 1
             else:
                 status = "added"

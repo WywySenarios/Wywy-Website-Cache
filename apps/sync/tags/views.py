@@ -70,9 +70,7 @@ def index(request: HttpRequest) -> HttpResponse:
                     return HttpResponseBadRequest("Erroneous information was provided.")
 
                 # store data
-                store_raw_entry({
-                    "id": get_local_next_id(database_name, f"{table_name}_tags"),
-                    **data}, database_name, f"{table_name}_tags", table_name, "tags")
+                store_raw_entry(data, database_name, f"{table_name}_tags", table_name, "tags")
             case "tag_names":
                 # validate input
                 if "tag_name" not in data:
@@ -86,13 +84,8 @@ def index(request: HttpRequest) -> HttpResponse:
                 data["tag_name"] = remove_quotation(data["tag_name"])
 
                 # store data
-                next_id: int = get_local_next_id(database_name, f"{table_name}_tag_names")
-
                 # @TODO atomicity
-                store_raw_entry({
-                    "id": next_id,
-                    **data
-                    }, database_name, f"{table_name}_tag_names", table_name, "tag_names")
+                next_id = store_raw_entry(data, database_name, f"{table_name}_tag_names", table_name, "tag_names")
 
                 # automatically add the related alias
                 store_raw_entry({
@@ -132,10 +125,7 @@ def index(request: HttpRequest) -> HttpResponse:
                 # unquote necessary fields
                 data["group_name"] = remove_quotation(data["group_name"])
                 
-                store_raw_entry({
-                    "id": get_local_next_id(database_name, f"{table_name}_tag_groups"),
-                    **data
-                    }, database_name, f"{table_name}_tag_groups", table_name, "tag_groups")
+                store_raw_entry(data, database_name, f"{table_name}_tag_groups", table_name, "tag_groups")
             case _:
                 return HttpResponseBadRequest("Invalid URL. Expecting tags/[databaseName]/[tableName]/[tag_names/tag_aliases].")
 
