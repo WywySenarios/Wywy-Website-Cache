@@ -22,7 +22,7 @@ def get_remote_id(database_name: str, table_name: str, id: int | str) -> int | s
             host="wywywebsite-cache_database",
             port=env.get("POSTGRES_PORT", 5433)
         ) as info_conn:
-        info_cur = info_conn.execute("SELECT remote_id FROM sync_status WHERE database_name = %s AND table_name = %s AND entry_id = %s;", (database_name, table_name, id))
+        info_cur = info_conn.execute("SELECT remote_id FROM sync_status WHERE database_name = %s AND table_name = %s AND entry_id = %s;", (database_name, table_name, str(id)))
         output = next(info_cur)[0]
         info_cur.close()
         return output
