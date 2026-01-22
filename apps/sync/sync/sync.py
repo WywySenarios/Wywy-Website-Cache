@@ -108,6 +108,8 @@ def sync() -> None:
             except RuntimeError as e:
                 print(e)
                 status = "failed"
+                
+            remote_id: int | str | None = None
             
             try:
                 if status == "failed":
