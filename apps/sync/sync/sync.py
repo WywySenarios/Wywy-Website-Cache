@@ -106,7 +106,6 @@ def sync() -> None:
                         update_foreign_key(payload, database_name, f"{parent_table_name}_tag_names", "tag_id")
                         update_foreign_key(payload, database_name, parent_table_name, "entry_id")
             except RuntimeError as e:
-                print(e)
                 status = "failed"
                 
             remote_id: int | str | None = None
