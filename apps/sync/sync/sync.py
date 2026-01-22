@@ -11,6 +11,7 @@ from typing import List, Literal
 
 from utils import to_lower_snake_case, get_env_int
 from schema import check_entry, databases
+from db import update_foreign_key
 
 with open("config.yml", "r") as file:
     config = yaml.safe_load(file)
@@ -59,12 +60,12 @@ def sync() -> None:
             match(table_type):
                 case "tag_aliases":
                     id_column_name = "alias"
-            db_name: str = target[4]
+            database_name: str = target[4]
             target_id: str = target[5]
             
             # get the information relating to the target
             target_record_conn = psycopg.connect(
-                dbname=db_name,
+                dbname=database_name,
                 user=env.get("POSTGRES_USER", "postgres"),
                 password=env.get("POSTGRES_PASSWORD", "password"),
                 host="wywywebsite-cache_database",
@@ -81,20 +82,38 @@ def sync() -> None:
             payload = dict(next(target_record_cur))
             for k, v in payload.items():
                 if v is None:
-                    print(f"Sync failed. Anomalous item: ({db_name}/{table_name} ({parent_table_name})): {payload}")
+                    print(f"Sync failed. Anomalous item: ({database_name}/{table_name} ({parent_table_name})): {payload}")
                     return
                 elif isinstance(v, datetime.datetime) or isinstance(v, datetime.date) or isinstance(v, datetime.time):
                     payload[k] =  f"'{v.isoformat()}'"
                 elif isinstance(v, str):
                     payload[k] = f"'{v}'"
+            
             # remove numerical id because the sql-receptionist will take care of that.
             if "id" in payload:
                 del payload["id"]
+            
             status: None | Literal['updated', 'failed'] = None
-            remote_id: str | None = None
+            
+            # correct the foreign key to the master database's key ids. If those key IDs are not yet available, abort.
             try:
+                match (table_type):
+                    case "tag_aliases":
+                        update_foreign_key(payload, database_name, f"{parent_table_name}_tag_names", "tag_id")
+                    case "tag_groups":
+                        update_foreign_key(payload, database_name, f"{parent_table_name}_tag_names", "tag_id")
+                    case "tags":
+                        update_foreign_key(payload, database_name, f"{parent_table_name}_tag_names", "tag_id")
+                        update_foreign_key(payload, database_name, parent_table_name, "entry_id")
+            except RuntimeError as e:
+                print(e)
+                status = "failed"
+            
+            try:
+                if status == "failed":
+                    raise Warning()
                 with open("/run/secrets/admin", "r") as f:
-                    response = requests.post(f"{config["referenceUrls"]["db"]}/{db_name}/{parent_table_name}/{table_type}{f"/{table_name[len(parent_table_name) + 1:][:1 + len(table_type)]}" if table_type != "data" else ""}", timeout=5, cookies={
+                    response = requests.post(f"{config["referenceUrls"]["db"]}/{database_name}/{parent_table_name}/{table_type}{f"/{table_name[len(parent_table_name) + 1:][:1 + len(table_type)]}" if table_type != "data" else ""}", timeout=5, cookies={
                         "username": "admin",
                         "password": f.read()
                     }, json=payload)
@@ -108,6 +127,9 @@ def sync() -> None:
                 num_failures += 1
             except ValueError as e:
                 status = "anomalous"
+                num_failures += 1
+            except Warning as w:
+                status = "failed"
                 num_failures += 1
             else:
                 status = "added"

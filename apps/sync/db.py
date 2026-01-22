@@ -4,6 +4,49 @@ import requests
 from typing import List
 from os import environ as env
 
+def get_remote_id(database_name: str, table_name: str, id: int | str) -> int | str | None:
+    """Attempts to fetch the remote id from the sync_status table.
+
+    Args:
+        database_name (str): The target database name.
+        table_name (str): The target table name (i.e. the table that contains the FKEY).
+        id (int | str): The local ID.
+
+    Returns:
+        int | str | None: Returns the remote id on success and None if the parent entry has not been synced yet.
+    """
+    with psycopg.connect(
+            dbname="info",
+            user=env.get("POSTGRES_USER", "postgres"),
+            password=env.get("POSTGRES_PASSWORD", "password"),
+            host="wywywebsite-cache_database",
+            port=env.get("POSTGRES_PORT", 5433)
+        ) as info_conn:
+        info_cur = info_conn.execute("SELECT remote_id FROM sync_status WHERE database_name = %s AND table_name = %s AND entry_id = %s;", (database_name, table_name, id))
+        output = next(info_cur)[0]
+        info_cur.close()
+        return output
+
+def update_foreign_key(entry: dict, database_name: str, table_name: str, target: str) -> None:
+    """Updates one foreign key of the given entry.
+
+    Args:
+        entry (dict): The entry to modify.
+        database_name (str): The related database name.
+        table_name (str): The target table name (i.e. the table that contains the FKEY).
+        targets (str): The key to modify
+
+    Raises:
+        RuntimeError: Raises a runtime error if the remote ID is not found.
+    """
+    if target not in entry:
+        return
+    
+    remote_id = get_remote_id(database_name, table_name, entry[target])
+    if remote_id is None:
+        raise RuntimeError("Remote ID not found.")
+    entry[target] = remote_id
+
 def store_entry(data_conn, info_conn, item: dict, schema: dict, target_database_name: str, target_table_name: str, target_parent_table_name: str, target_table_type: str, id_column_name: str = "id", tagging = False) -> str | None:
     """Stores an entry in both the respective data table and the info/sync table.
 
