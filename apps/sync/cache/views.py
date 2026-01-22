@@ -43,11 +43,11 @@ def index(request: HttpRequest) -> HttpResponse:
         url_chunks: List[str] = request.path.split("/")
         if len(url_chunks) != 4:
             return HttpResponseBadRequest()
-        db_name = to_lower_snake_case(url_chunks[2])
+        database_name = to_lower_snake_case(url_chunks[2])
         table_name = to_lower_snake_case(url_chunks[3])
-        if not db_name in databases or not table_name in databases[db_name]:
+        if not database_name in databases or not table_name in databases[database_name]:
             return HttpResponseBadRequest()
-        table: dict = databases[db_name][table_name]
+        table: dict = databases[database_name][table_name]
 
         
         # load in body
@@ -60,7 +60,7 @@ def index(request: HttpRequest) -> HttpResponse:
             return HttpResponseBadRequest()
         
         # store the input into the cache
-        cache_values[db_name][table_name] = data
+        cache_values[database_name][table_name] = data
         
         return HttpResponse()
     elif request.method == "GET":
@@ -68,16 +68,16 @@ def index(request: HttpRequest) -> HttpResponse:
         url_chunks: List[str] = request.path.split("/")
         if len(url_chunks) != 4:
             return HttpResponseBadRequest()
-        db_name = to_lower_snake_case(url_chunks[2])
+        database_name = to_lower_snake_case(url_chunks[2])
         table_name = to_lower_snake_case(url_chunks[3])
-        if not db_name in databases or not table_name in databases[db_name]:
+        if not database_name in databases or not table_name in databases[database_name]:
             return HttpResponseBadRequest()
         
         # return the cache or an empty dictionary
-        if cache_values[db_name][table_name] is None:
+        if cache_values[database_name][table_name] is None:
             return JsonResponse({})
         else:
-            return JsonResponse(cache_values[db_name][table_name])
+            return JsonResponse(cache_values[database_name][table_name])
     return HttpResponseBadRequest()
 
 @ensure_csrf_cookie

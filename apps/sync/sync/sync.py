@@ -47,7 +47,7 @@ def sync() -> None:
             port=env.get("POSTGRES_PORT", 5433)
         ) as info_conn:
         # select all targets that need syncing (failed, not synced yet (NULL)) (do not select mismatch for now)
-        targets_cur = info_conn.execute("SELECT id, table_name, parent_table_name, table_type, db_name, entry_id, status FROM sync_status WHERE status IN ('failed') OR status IS NULL;")
+        targets_cur = info_conn.execute("SELECT id, table_name, parent_table_name, table_type, database_name, entry_id, status FROM sync_status WHERE status IN ('failed') OR status IS NULL;")
         
         num_successes = 0
         num_failures = 0

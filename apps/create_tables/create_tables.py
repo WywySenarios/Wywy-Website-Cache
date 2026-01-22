@@ -138,7 +138,7 @@ def add_info_table() -> None:
                         table_name TEXT NOT NULL,
                         parent_table_name TEXT NOT NULL,
                         table_type TEXT NOT NULL,
-                        db_name TEXT NOT NULL,
+                        database_name TEXT NOT NULL,
                         entry_id TEXT NOT NULL,
                         remote_id INT NULL,
                         sync_timestamp TIMESTAMPTZ NULL,

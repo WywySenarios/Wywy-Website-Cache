@@ -100,7 +100,7 @@ def store_entry(data_conn, info_conn, item: dict, schema: dict, target_database_
     try:
         data_cur = data_conn.execute(sql.SQL("INSERT INTO {table} ({fields}) VALUES({placeholders}) RETURNING {id_column_name};").format(table=sql.Identifier(target_table_name), fields=sql.SQL(', ').join(map(sql.Identifier, cols)), placeholders=sql.SQL(', ').join(sql.Placeholder() * len(values)), id_column_name=id_column_name), values)
         id = next(data_cur)[0]
-        info_conn.execute("INSERT INTO sync_status (table_name, parent_table_name, table_type, db_name, entry_id, remote_id, sync_timestamp, status) VALUES (%s, %s, %s, %s, %s, NULL, NULL, NULL);", (target_table_name, target_parent_table_name, target_table_type, target_database_name, next_id)).close()
+        info_conn.execute("INSERT INTO sync_status (table_name, parent_table_name, table_type, database_name, entry_id, remote_id, sync_timestamp, status) VALUES (%s, %s, %s, %s, %s, NULL, NULL, NULL);", (target_table_name, target_parent_table_name, target_table_type, target_database_name, next_id)).close()
     except:
         data_conn.rollback()
         info_conn.rollback()
@@ -145,7 +145,7 @@ def store_raw_entry(item: dict, target_database_name: str, target_table_name: st
         try:
             data_cur = data_conn.execute(sql.SQL("INSERT INTO {table} ({fields}) VALUES({placeholders}) RETURNING {id_column};").format(table=sql.Identifier(target_table_name), fields=sql.SQL(', ').join(map(sql.Identifier, columns)),placeholders=sql.SQL(', ').join(sql.Placeholder() * len(values)), id_column=sql.Identifier(id_column_name)), values)
             id = next(data_cur)[0]
-            info_conn.execute("INSERT INTO sync_status (table_name, parent_table_name, table_type, db_name, entry_id, remote_id, sync_timestamp, status) VALUES (%s, %s, %s, %s, %s, NULL, NULL, NULL);", (target_table_name, target_parent_table_name, target_table_type, target_database_name, id)).close()
+            info_conn.execute("INSERT INTO sync_status (table_name, parent_table_name, table_type, database_name, entry_id, remote_id, sync_timestamp, status) VALUES (%s, %s, %s, %s, %s, NULL, NULL, NULL);", (target_table_name, target_parent_table_name, target_table_type, target_database_name, id)).close()
             data_cur.close()
         except psycopg.Error as e:
             data_conn.rollback()
