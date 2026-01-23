@@ -75,20 +75,20 @@ def index(request: HttpRequest) -> HttpResponse:
         
         # store data
         # @TODO https://en.wikipedia.org/wiki/Two-phase_commit_protocol
-        try:
-            with psycopg.connect(
-                dbname=database_name,
-                user=env.get("POSTGRES_USER", "postgres"),
-                password=env.get("POSTGRES_PASSWORD", "password"),
-                host="wywywebsite-cache_database",
-                port=env.get("POSTGRES_PORT", 5433)
-            ) as data_conn, psycopg.connect(
-                dbname="info",
-                user=env.get("POSTGRES_USER", "postgres"),
-                password=env.get("POSTGRES_PASSWORD", "password"),
-                host="wywywebsite-cache_database",
-                port=env.get("POSTGRES_PORT", 5433)
-            ) as info_conn:
+        with psycopg.connect(
+            dbname=database_name,
+            user=env.get("POSTGRES_USER", "postgres"),
+            password=env.get("POSTGRES_PASSWORD", "password"),
+            host="wywywebsite-cache_database",
+            port=env.get("POSTGRES_PORT", 5433)
+        ) as data_conn, psycopg.connect(
+            dbname="info",
+            user=env.get("POSTGRES_USER", "postgres"),
+            password=env.get("POSTGRES_PASSWORD", "password"),
+            host="wywywebsite-cache_database",
+            port=env.get("POSTGRES_PORT", 5433)
+        ) as info_conn:
+            try:
                 # @TODO atomicity
                 # main entry
                 entry_id = store_entry(data_conn, info_conn, f_data["data"], table["schema"], database_name, table_name, table_name, "data", tagging=("tagging" in table and table["tagging"] == True))
@@ -100,10 +100,10 @@ def index(request: HttpRequest) -> HttpResponse:
                     for descriptor_name in f_data["descriptors"]:
                         for descriptor_info in f_data["descriptors"][descriptor_name]:
                             store_entry(data_conn, info_conn, descriptor_info, table["descriptors"][descriptor_name]["schema"], database_name, f"{table_name}_{descriptor_name}_descriptors", table_name, "descriptors")
-        except (psycopg.Error, ValueError) as e:
-            data_conn.rollback()
-            info_conn.rollback()
-            return HttpResponseServerError("Database/schema check faliure. Contact the website administrator and dev for a fix.")
+            except (psycopg.Error, ValueError) as e:
+                data_conn.rollback()
+                info_conn.rollback()
+                return HttpResponseServerError("Database/schema check faliure. Contact the website administrator and dev for a fix.")
         
         # @TODO recovery
         
