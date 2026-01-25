@@ -10,7 +10,7 @@ from psycopg import sql
 from typing import List, Literal
 
 from utils import to_lower_snake_case, get_env_int
-from schema import check_entry, databases
+from schema import databases
 from db import update_foreign_key
 
 with open("config.yml", "r") as file:
