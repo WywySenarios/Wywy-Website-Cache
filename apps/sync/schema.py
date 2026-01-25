@@ -197,12 +197,13 @@ def check_entry(entry: dict, database_name: str, table_info: dict) -> bool:
 
 
 # @TODO verify every entry that is needed is inside
-def check_item(data: dict, schema: dict) -> bool:
+def check_item(data: dict, schema: dict, require_inclusion: bool = True) -> bool:
     """Checks the given data against the given schema.
 
     Args:
         data (dict): The data to check.
         schema (dict): The schema to check against.
+        require_inclusion (bool): Whether or not each non-optional column must be present in the item for it to be valid.
 
     Returns:
         bool: Whether or not the data conforms to the schema.
@@ -249,11 +250,12 @@ def check_item(data: dict, schema: dict) -> bool:
         # @TODO min/max, etc. checks
     
     # check if all columns are present
-    for column_name in schema:
-        if not column_name in data:
-            if VERBOSITY_LEVEL > 0:
-                print(f"Column {column_name} not found inside the data.")
-            return False
+    if (require_inclusion):
+        for column_name in schema:
+            if not column_name in data:
+                if VERBOSITY_LEVEL > 0:
+                    print(f"Column {column_name} not found inside the data.")
+                return False
         
         # do not check for comments because they are NULLable anyways
     
