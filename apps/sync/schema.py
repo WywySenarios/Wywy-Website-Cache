@@ -220,7 +220,7 @@ def check_item(data: dict, schema: dict) -> bool:
         # check if the datatype is correct
         if not DATATYPE_CHECK[schema[column_name]["datatype"]](data[display_column_name]):
             if VERBOSITY_LEVEL > 0:
-                print(f"Bad datatype {data[display_column_name]} {schema[column_name]["datatype"]}")
+                print(f"Bad datatype for column {display_column_name}. Expected {schema[column_name]["datatype"]}.")
             return False
         
         # @TODO min/max, etc. checks
