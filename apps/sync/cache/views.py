@@ -56,7 +56,7 @@ def index(request: HttpRequest) -> HttpResponse:
         if data == None:
             return HttpResponseBadRequest()
         
-        if not check_item(data, table["schema"]):
+        if not check_item(data, table["schema"], require_inclusion=False):
             return HttpResponseBadRequest()
         
         # store the input into the cache
