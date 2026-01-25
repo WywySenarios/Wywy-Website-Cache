@@ -64,6 +64,7 @@ def store_entry(data_conn, info_conn, item: dict, schema: dict, target_database_
 
     Raises:
         ValueError: When a schema column is missing from the given entry to record.
+        Psycopg.Error: When storing the entry fails. store_entry should be encapsulated in a try-catch to rollback when necessary.
 
     Returns:
         int | str | None: The ID of the newly stored column.
@@ -97,13 +98,9 @@ def store_entry(data_conn, info_conn, item: dict, schema: dict, target_database_
         values.append(item["primary_tag"])
 
     # record the main entry
-    try:
-        data_cur = data_conn.execute(sql.SQL("INSERT INTO {table} ({fields}) VALUES({placeholders}) RETURNING {id_column_name};").format(table=sql.Identifier(target_table_name), fields=sql.SQL(', ').join(map(sql.Identifier, cols)), placeholders=sql.SQL(', ').join(sql.Placeholder() * len(values)), id_column_name=id_column_name), values)
-        id = next(data_cur)[0]
-        info_conn.execute("INSERT INTO sync_status (table_name, parent_table_name, table_type, database_name, entry_id, remote_id, sync_timestamp, status) VALUES (%s, %s, %s, %s, %s, NULL, NULL, NULL);", (target_table_name, target_parent_table_name, target_table_type, target_database_name, next_id)).close()
-    except:
-        data_conn.rollback()
-        info_conn.rollback()
+    data_cur = data_conn.execute(sql.SQL("INSERT INTO {table} ({fields}) VALUES({placeholders}) RETURNING {id_column_name};").format(table=sql.Identifier(target_table_name), fields=sql.SQL(', ').join(map(sql.Identifier, cols)), placeholders=sql.SQL(', ').join(sql.Placeholder() * len(values)), id_column_name=sql.Identifier(id_column_name)), values)
+    id = next(data_cur)[0]
+    info_conn.execute("INSERT INTO sync_status (table_name, parent_table_name, table_type, database_name, entry_id, remote_id, sync_timestamp, status) VALUES (%s, %s, %s, %s, %s, NULL, NULL, NULL);", (target_table_name, target_parent_table_name, target_table_type, target_database_name, id)).close()
     return id
 
 def store_raw_entry(item: dict, target_database_name: str, target_table_name: str, target_parent_table_name: str, target_table_type: str, id_column_name: str = "id") -> int | str:
