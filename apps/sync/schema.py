@@ -14,8 +14,8 @@ DATATYPE_CHECK: dict = {
     "string": lambda x: x is not None,
     "str": lambda x: x is not None,
     "text": lambda x: x is not None,
-    "bool": lambda x: str(x).capitalize() in ("TRUE", "FALSE"),
-    "boolean": lambda x: str(x).capitalize() in ("TRUE", "FALSE"),
+    "bool": lambda x: str(x).lower() in ("true", "false"),
+    "boolean": lambda x: str(x).lower() in ("true", "false"),
 
     # yyyy-mm-dd (1–4 digit year)
     "date": lambda x: isinstance(x, str) and re.fullmatch(r"\'[0-9]{1,4}-[0-9]{2}-[0-9]{2}\'", x) is not None,
