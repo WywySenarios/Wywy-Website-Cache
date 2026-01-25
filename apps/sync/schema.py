@@ -3,6 +3,8 @@ import re
 import yaml
 from utils import to_lower_snake_case, get_env_int
 from os import environ as env
+import psycopg
+from psycopg import sql
 
 VERBOSITY_LEVEL = get_env_int("SCHEMA_CHECK_VERBOSITY", 0)
 
@@ -100,11 +102,33 @@ databases: dict = {
     for db in config["data"]
 }
 
-def check_entry(entry: dict, table_info: dict) -> bool:
+def get_all_tags(database_name: str, parent_table_name: str) -> dict:
+    """Get all the related tags. Expects the target table to have tagged enabled.
+
+    Args:
+        database_name (str): The database of the target table.
+        parent_table_name (str): The name of the parent table.
+
+    Returns:
+        dict: A dictionary with the key as the alias and the value as an array with the first index as the tag_id.
+    """
+    with psycopg.connect(
+        dbname=database_name,
+        user=env.get("POSTGRES_USER", "postgres"),
+        password=env.get("POSTGRES_PASSWORD", "password"),
+        host="wywywebsite-cache_database",
+        port=env.get("POSTGRES_PORT", 5433)
+        ) as conn:
+        with conn.cursor() as cur:
+            cur.execute(sql.SQL("SELECT (id) FROM {table_name};").format(table_name=sql.Identifier(f"{parent_table_name}_tag_names")))
+            return [row[0] for row in cur.fetchall()]
+
+def check_entry(entry: dict, database_name: str, table_info: dict) -> bool:
     """Checks the given entry against the given table schema.
 
     Args:
         entry (dict): The entry to check.
+        database_name (str): The name of the database that contains the respective table.
         table_info (dict): The table schema to check against.
 
     Returns:
@@ -132,11 +156,10 @@ def check_entry(entry: dict, table_info: dict) -> bool:
                 print("An array of tags must be provided. This array can be empty.")
             return False
     
-        for tag_id in entry["tags"]:
-            if not (isinstance(tag_id, str) and tag_id.isdigit()) and not isinstance(tag_id, int):
-                if VERBOSITY_LEVEL > 0:
-                    print(f"Tag \"{tag_id}\" is invalid. Tag IDs must be provided rather than tag names.")
-                return False
+        if not check_tags(entry["tags"], database_name, table_info["tableName"]):
+            if VERBOSITY_LEVEL > 0:
+                print("Invalid tags.")
+            return False
 
     # check descriptors
     # check if the descriptors exist when they should.
@@ -224,6 +247,16 @@ def check_item(data: dict, schema: dict) -> bool:
             return False
         
         # @TODO min/max, etc. checks
+    
+    # check if all columns are present
+    for column_name in schema:
+        if not column_name in data:
+            if VERBOSITY_LEVEL > 0:
+                print(f"Column {column_name} not found inside the data.")
+            return False
+        
+        # do not check for comments because they are NULLable anyways
+    
     return True
 
 def check_tags(tags: List[str], database_name: str, table_name: str) -> bool:
@@ -237,5 +270,19 @@ def check_tags(tags: List[str], database_name: str, table_name: str) -> bool:
     Returns:
         bool: Whether or not the given tags are a valid set of tags or not.
     """
-    table = databases[database_name][table_name]
+    tags_schema = set(get_all_tags(database_name, table_name))
+    
+    for tag_id in tags:
+        if not (isinstance(tag_id, str) and tag_id.isdigit()) and not isinstance(tag_id, int):
+            if VERBOSITY_LEVEL > 0:
+                print(f"Tag \"{tag_id}\" is invalid. Tag IDs must be provided rather than tag names.")
+            return False
+
+        if tag_id not in tags_schema:
+            if VERBOSITY_LEVEL > 0:
+                print(f"Tag ID \"{tag_id}\" was not found.")
+            return False
+        
+        tags_schema.remove(tag_id)
+    
     return True

@@ -14,7 +14,7 @@ import datetime
 from utils import to_lower_snake_case, get_env_int
 from schema import check_entry, databases
 from sync.sync import queue_sync
-from db import store_entry
+from db import store_entry, store_raw_entry
 
 # peak at config
 with open("config.yml", "r") as file:
@@ -52,6 +52,9 @@ def index(request: HttpRequest) -> HttpResponse:
         }
 
         if "tags" in data:
+            if not isinstance(data["tags"], list):
+                return HttpResponseBadRequest("Tags must be supplied in an array.")
+            
             f_data["tags"] = data["tags"]
         
         if "descriptors" in data:
@@ -69,7 +72,7 @@ def index(request: HttpRequest) -> HttpResponse:
             except:
                 return HttpResponseBadRequest("Failed to parse the supplied descriptors.")
         
-        if not check_entry(f_data, table):
+        if not check_entry(f_data, database_name, table):
             return HttpResponseBadRequest("The given entry does not conform to the schema.")
         # END - validate schema
         
@@ -93,7 +96,12 @@ def index(request: HttpRequest) -> HttpResponse:
                 # main entry
                 entry_id = store_entry(data_conn, info_conn, f_data["data"], table["schema"], database_name, table_name, table_name, "data", tagging=("tagging" in table and table["tagging"] == True))
 
-            # @TODO tags
+                # tags
+                for tag_id in f_data["tags"]:
+                    store_raw_entry({
+                        "entry_id": entry_id,
+                        "tag_id": tag_id
+                    }, database_name, f"{table_name}_tags", table_name, "tags")
 
                 # descriptors
                 if "descriptors" in f_data:
