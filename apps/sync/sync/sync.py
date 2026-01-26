@@ -159,7 +159,7 @@ def sync() -> None:
             print(f"Successfully synced {num_successes} entries and failed to sync {num_failures} entries.")
 
         if SYNC_VERBOSITY > 1:
-            summary_cur = info_conn.execute("SELECT * FROM sync_status;")
+            summary_cur = info_conn.execute("SELECT * FROM sync_status WHERE status='failed';")
             print(summary_cur.fetchall())
             summary_cur.close()
     
