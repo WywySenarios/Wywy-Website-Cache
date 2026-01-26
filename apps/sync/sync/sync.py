@@ -98,7 +98,7 @@ def sync() -> None:
                 elif isinstance(v, datetime.datetime) or isinstance(v, datetime.date) or isinstance(v, datetime.time):
                     payload[k] =  f"'{v.isoformat()}'"
                 elif isinstance(v, str):
-                    payload[k] = f"'{v}'"
+                    payload[k] = f"'{v.removeprefix("'").removesuffix("'")}'"
             
             # remove numerical id because the sql-receptionist will take care of that.
             if "id" in payload:
