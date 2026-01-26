@@ -12,6 +12,8 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 
 from pathlib import Path
 import os
+
+from os import environ
 import yaml
 
 # peak at config
@@ -29,16 +31,22 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = 'django-insecure-o#&2j^jvh*j#x(nu=%+h+i&@+le=7euo67$_c(ee9^5#-hkpbl'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+
+DEV: bool = environ.get("DEV", False).lower() == "true"
+DEBUG = DEV
 
 ALLOWED_HOSTS = [
     f".{config["referenceUrls"]["domain"]}",
-    "http://127.0.0.1:8000",
+]
+
+if (DEV):
+    ALLOWED_HOSTS += [
+        "http://127.0.0.1:8000",
     "http://127.0.0.1",
     "127.0.0.1",
     "localhost",
     "http://0.0.0.0",
-]
+    ]
 
 
 # Application definition
@@ -66,28 +74,54 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+
+# START - CORS
 CORS_ALLOWED_ORIGINS = [
     config["referenceUrls"]["main"],
-    # "http://localhost:4321", # dev server
 ]
-CORS_ALLOW_CREDENTIALS = True
-CORS_ALLOW_ALL_ORIGNS = True
+if (DEV):
+    CORS_ALLOWED_ORIGINS += [
+        "http://localhost:4321"
+    ]
+    
+# CORS & CSRF depend on whether or not it's a dev server
+if (DEV): # dev server
+    CORS_ALLOW_CREDENTIALS = True
+    CORS_ALLOW_ALL_ORIGNS = True
+else: # prod server
+    CORS_ALLOW_CREDENTIALS = False
+    CORS_ALLOW_ALL_ORIGNS = False
+# END - CORS
 
+# START - CSRF
 CSRF_TRUSTED_ORIGINS = [
     config["referenceUrls"]["main"],
-    # "http://localhost:4321", # dev server
 ]
+if (DEV):
+    CSRF_TRUSTED_ORIGINS += ["http://localhost:4321"]
 
-SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
-CSRF_COOKIE_SAMESITE = "Strict"
-CSRF_COOKIE_SECURE = False
+# CORS & CSRF depend on whether or not it's a dev server
+if (DEV): # dev server
+    CSRF_COOKIE_SAMESITE = "Strict"
+    CSRF_COOKIE_SECURE = False
 
-CSRF_USE_SESIONS = False
-CSRF_HTTP_COOKIE_ONLY = False
+    CSRF_USE_SESIONS = False
+    CSRF_HTTP_COOKIE_ONLY = False
 
-CSRF_COOKIE_PARTITIONED = False
-SESSION_COOKIE_SAMESITE = "Strict"
-SESSION_COOKIE_SECURE = False
+    CSRF_COOKIE_PARTITIONED = False
+    SESSION_COOKIE_SAMESITE = "Strict"
+    SESSION_COOKIE_SECURE = False
+else: # prod server
+    CSRF_COOKIE_SAMESITE = "Lax"
+    CSRF_COOKIE_SECURE = True
+
+    CSRF_USE_SESIONS = True
+    CSRF_HTTP_COOKIE_ONLY = True
+
+    CSRF_COOKIE_PARTITIONED = True
+    SESSION_COOKIE_SAMESITE = "Lax"
+    SESSION_COOKIE_SECURE = True
 
 ROOT_URLCONF = 'sync.urls'
 
