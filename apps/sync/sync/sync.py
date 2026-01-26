@@ -57,11 +57,22 @@ def sync() -> None:
             parent_table_name: str = target[2]
             table_type: str = target[3]
             id_column_name: str = "id"
+            
+            # update the ID column information
             match(table_type):
                 case "tag_aliases":
                     id_column_name = "alias"
+            
             database_name: str = target[4]
             target_id: str = target[5]
+            
+            # find the correct endpoint to POST to
+            endpoint: str = ""
+            match(table_type):
+                case "data":
+                    endpoint = f"{config["referenceUrls"]["db"]}/{database_name}/{parent_table_name}/{table_type}"
+                case _:
+                    endpoint = f"{config["referenceUrls"]["db"]}/{database_name}/{parent_table_name}/{table_type}/{table_name.removeprefix(f"{parent_table_name}_").removesuffix(f"_{table_type}")}"
             
             # get the information relating to the target
             target_record_conn = psycopg.connect(
@@ -114,7 +125,7 @@ def sync() -> None:
                 if status == "failed":
                     raise Warning()
                 with open("/run/secrets/admin", "r") as f:
-                    response = requests.post(f"{config["referenceUrls"]["db"]}/{database_name}/{parent_table_name}/{table_type}{f"/{table_name[len(parent_table_name) + 1:][:1 + len(table_type)]}" if table_type != "data" else ""}", timeout=5, cookies={
+                    response = requests.post(endpoint, timeout=5, cookies={
                         "username": "admin",
                         "password": f.read()
                     }, json=payload)
