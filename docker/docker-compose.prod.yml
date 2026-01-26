@@ -58,6 +58,7 @@ services:
     depends_on:
       wywywebsite-cache_database:
         condition: service_healthy
+    command: gunicorn sync.wsgi --bind ${SYNC_PORT}
 
   # @TODO secrets for db authentication
   wywywebsite-cache_database:
