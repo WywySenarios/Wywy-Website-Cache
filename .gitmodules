@@ -1,0 +1,3 @@
+[submodule "apps/create_tables"]
+	path = apps/create_tables
+	url = https://github.com/WywySenarios/Wywy-Website-Create-Tables
