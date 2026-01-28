@@ -97,11 +97,12 @@ def index(request: HttpRequest) -> HttpResponse:
                 entry_id = store_entry(data_conn, info_conn, f_data["data"], table["schema"], database_name, table_name, table_name, "data", tagging=("tagging" in table and table["tagging"] == True))
                 
                 # tags
-                for tag_id in f_data["tags"]:
-                    store_raw_entry(data_conn, info_conn, {
-                        "entry_id": entry_id,
-                        "tag_id": tag_id
-                    }, database_name, f"{table_name}_tags", table_name, "tags")
+                if "tags" in f_data:
+                    for tag_id in f_data["tags"]:
+                        store_raw_entry(data_conn, info_conn, {
+                            "entry_id": entry_id,
+                            "tag_id": tag_id
+                        }, database_name, f"{table_name}_tags", table_name, "tags")
 
                 # descriptors
                 if "descriptors" in f_data:
