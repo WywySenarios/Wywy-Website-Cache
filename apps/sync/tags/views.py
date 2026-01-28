@@ -55,79 +55,97 @@ def index(request: HttpRequest) -> HttpResponse:
         if not data:
             return HttpResponseBadRequest("Empty or invalid body.")
 
-        match command:
-            case "tags":
-                # validate input
-                if "entry_id" not in data:
-                    return HttpResponseBadRequest("The entry ID was not provided.")
-                if not isinstance(data["entry_id"], int) or data["entry_id"] <= 0:
-                    return HttpResponseBadRequest("The ID of the entry that is being tagged must be a postivie integer.")
-                if "tag_id" not in data:
-                    return HttpResponseBadRequest("Related ID not provided.")
-                if not isinstance(data["tag_id"], int) or data["tag_id"] <= 0:
-                    return HttpResponseBadRequest("The related tag ID must be a positive integer.")
-                if len(list(data)) > 2:
-                    return HttpResponseBadRequest("Erroneous information was provided.")
+        with psycopg.connect(
+            dbname=database_name,
+            user=env.get("POSTGRES_USER", "postgres"),
+            password=env.get("POSTGRES_PASSWORD", "password"),
+            host="wywywebsite-cache_database",
+            port=env.get("POSTGRES_PORT", 5433)
+        ) as data_conn, psycopg.connect(
+            dbname="info",
+            user=env.get("POSTGRES_USER", "postgres"),
+            password=env.get("POSTGRES_PASSWORD", "password"),
+            host="wywywebsite-cache_database",
+            port=env.get("POSTGRES_PORT", 5433)
+        ) as info_conn:
+            try:
+                match command:
+                    case "tags":
+                        # validate input
+                        if "entry_id" not in data:
+                            return HttpResponseBadRequest("The entry ID was not provided.")
+                        if not isinstance(data["entry_id"], int) or data["entry_id"] <= 0:
+                            return HttpResponseBadRequest("The ID of the entry that is being tagged must be a postivie integer.")
+                        if "tag_id" not in data:
+                            return HttpResponseBadRequest("Related ID not provided.")
+                        if not isinstance(data["tag_id"], int) or data["tag_id"] <= 0:
+                            return HttpResponseBadRequest("The related tag ID must be a positive integer.")
+                        if len(list(data)) > 2:
+                            return HttpResponseBadRequest("Erroneous information was provided.")
 
-                # store data
-                store_raw_entry(data, database_name, f"{table_name}_tags", table_name, "tags")
-            case "tag_names":
-                # validate input
-                if "tag_name" not in data:
-                    return HttpResponseBadRequest("New tag name not provided.")
-                if not isinstance(data["tag_name"], str):
-                    return HttpResponseBadRequest("The new tag name must be a string.")
-                if len(list(data)) > 1:
-                    return HttpResponseBadRequest("Erroneous information was provided.")
-                
-                # unquote necessary fields
-                data["tag_name"] = remove_quotation(data["tag_name"])
+                        # store data
+                        store_raw_entry(data_conn, info_conn, data, database_name, f"{table_name}_tags", table_name, "tags")
+                    case "tag_names":
+                        # validate input
+                        if "tag_name" not in data:
+                            return HttpResponseBadRequest("New tag name not provided.")
+                        if not isinstance(data["tag_name"], str):
+                            return HttpResponseBadRequest("The new tag name must be a string.")
+                        if len(list(data)) > 1:
+                            return HttpResponseBadRequest("Erroneous information was provided.")
+                        
+                        # unquote necessary fields
+                        data["tag_name"] = remove_quotation(data["tag_name"])
 
-                # store data
-                # @TODO atomicity
-                next_id = store_raw_entry(data, database_name, f"{table_name}_tag_names", table_name, "tag_names")
+                        # store data
+                        # @TODO atomicity
+                        next_id = store_raw_entry(data_conn, info_conn, data, database_name, f"{table_name}_tag_names", table_name, "tag_names")
 
-                # automatically add the related alias
-                store_raw_entry({
-                    "alias": data["tag_name"],
-                    "tag_id": next_id
-                }, database_name, f"{table_name}_tag_aliases", table_name, "tag_aliases", id_column_name="alias")
-            case "tag_aliases":
-                # validate input
-                if "alias" not in data:
-                    return HttpResponseBadRequest("New alias name not provided.")
-                if not isinstance(data["alias"], str):
-                    return HttpResponseBadRequest("The new alias name must be a string.")
-                if "tag_id" not in data:
-                    return HttpResponseBadRequest("Related ID not provided.")
-                if not isinstance(data["tag_id"], int) or data["tag_id"] <= 0:
-                    return HttpResponseBadRequest("The related tag ID must be a positive integer.")
-                if len(list(data)) > 2:
-                    return HttpResponseBadRequest("Erroneous information was provided.")
-                
-                # unquote necessary fields
-                data["alias"] = remove_quotation(data["alias"])
-                
-                store_raw_entry(data, database_name, f"{table_name}_tag_aliases", table_name, "tag_aliases", id_column_name="alias")
-            case "tag_groups":
-                # validate input
-                if "group_name" not in data:
-                    return HttpResponseBadRequest("Related group name not provided.")
-                if not isinstance(data["alias"], str):
-                    return HttpResponseBadRequest("The related group name must be a string.")
-                if "tag_id" not in data:
-                    return HttpResponseBadRequest("The ID of the tag being grouped was not provided.")
-                if not isinstance(data["tag_id"], int) or data["tag_id"] <= 0:
-                    return HttpResponseBadRequest("The ID of the tag being grouped must be a positive integer.")
-                if len(list(data)) > 2:
-                    return HttpResponseBadRequest("Erroneous information was provided.")
-                
-                # unquote necessary fields
-                data["group_name"] = remove_quotation(data["group_name"])
-                
-                store_raw_entry(data, database_name, f"{table_name}_tag_groups", table_name, "tag_groups")
-            case _:
-                return HttpResponseBadRequest("Invalid URL. Expecting tags/[databaseName]/[tableName]/[tag_names/tag_aliases].")
+                        # automatically add the related alias
+                        store_raw_entry(data_conn, info_conn, {
+                            "alias": data["tag_name"],
+                            "tag_id": next_id
+                        }, database_name, f"{table_name}_tag_aliases", table_name, "tag_aliases", id_column_name="alias")
+                    case "tag_aliases":
+                        # validate input
+                        if "alias" not in data:
+                            return HttpResponseBadRequest("New alias name not provided.")
+                        if not isinstance(data["alias"], str):
+                            return HttpResponseBadRequest("The new alias name must be a string.")
+                        if "tag_id" not in data:
+                            return HttpResponseBadRequest("Related ID not provided.")
+                        if not isinstance(data["tag_id"], int) or data["tag_id"] <= 0:
+                            return HttpResponseBadRequest("The related tag ID must be a positive integer.")
+                        if len(list(data)) > 2:
+                            return HttpResponseBadRequest("Erroneous information was provided.")
+                        
+                        # unquote necessary fields
+                        data["alias"] = remove_quotation(data["alias"])
+                        
+                        store_raw_entry(data_conn, info_conn, data, database_name, f"{table_name}_tag_aliases", table_name, "tag_aliases", id_column_name="alias")
+                    case "tag_groups":
+                        # validate input
+                        if "group_name" not in data:
+                            return HttpResponseBadRequest("Related group name not provided.")
+                        if not isinstance(data["alias"], str):
+                            return HttpResponseBadRequest("The related group name must be a string.")
+                        if "tag_id" not in data:
+                            return HttpResponseBadRequest("The ID of the tag being grouped was not provided.")
+                        if not isinstance(data["tag_id"], int) or data["tag_id"] <= 0:
+                            return HttpResponseBadRequest("The ID of the tag being grouped must be a positive integer.")
+                        if len(list(data)) > 2:
+                            return HttpResponseBadRequest("Erroneous information was provided.")
+                        
+                        # unquote necessary fields
+                        data["group_name"] = remove_quotation(data["group_name"])
+                        
+                        store_raw_entry(data_conn, info_conn, data, database_name, f"{table_name}_tag_groups", table_name, "tag_groups")
+                    case _:
+                        return HttpResponseBadRequest("Invalid URL. Expecting tags/[databaseName]/[tableName]/[tag_names/tag_aliases].")
+            except psycopg.Error as e:
+                data_conn.rollback()
+                info_conn.rollback()
+                return HttpResponseServerError("Database/schema check faliure. Contact the website administrator and dev for a fix.")
 
         queue_sync()
         return HttpResponse()

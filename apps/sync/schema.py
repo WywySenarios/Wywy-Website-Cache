@@ -141,24 +141,39 @@ def check_entry(entry: dict, database_name: str, table_info: dict) -> bool:
         return False
 
     # @TODO check tags
-    if ("tags" in entry and ("tagging" not in table_info or table_info["tagging"] != True)):
-        if VERBOSITY_LEVEL > 0:
-            print(f"Tagging is disabled on table {table_info.name}.")
-        return False
-    elif ("tags" not in entry and ("tagging" in table_info and table_info["tagging"] == True)):
-        if VERBOSITY_LEVEL > 0:
-            print(f"Tagging is enabled on table {table_info.name}. You must provide at least one tag.")
-        return False
-    
-    if "tags" in entry:
+    if "tagging" in table_info and table_info["tagging"] == True: # if tagging is enabled,
+        # ensure that there is a primary tag
+        if "primary_tag" not in entry["data"]:
+            if VERBOSITY_LEVEL > 0:
+                print(f"Tagging is enabled on table {table_info.name}. You must provide a primary tag.")
+        
+        # ensure that secondary tags are declared
+        if "tags" not in entry:
+            if VERBOSITY_LEVEL > 0:
+                print(f"Tagging is enabled on table {table_info.name}. You must give additional secondary tags or declare that there are none by passing in an empty array.")
+            return False
+        
+        # validate typing of supplied information
         if not isinstance(entry["tags"], list):
             if VERBOSITY_LEVEL > 0:
                 print("An array of tags must be provided. This array can be empty.")
             return False
-    
-        if not check_tags(entry["tags"], database_name, table_info["tableName"]):
+        
+        # validate the tags
+        if not check_tags([entry["data"]["primary_tag"]] + entry["tags"], database_name, table_info["tableName"]):
             if VERBOSITY_LEVEL > 0:
                 print("Invalid tags.")
+            return False
+    # if tagging is disabled, ensure that there are no tags
+    else:
+        if "primary_tag" in entry["data"]:
+            if VERBOSITY_LEVEL > 0:
+                print(f"Tagging is disabled on table {table_info.name}. You cannot supply a primary tag.")
+            return False
+        
+        if "tags" in entry:
+            if VERBOSITY_LEVEL > 0:
+                print(f"Tagging is disabled on table {table_info.name}. You cannot supply secondary tags.")
             return False
 
     # check descriptors
@@ -227,7 +242,7 @@ def check_item(data: dict, schema: dict, require_inclusion: bool = True) -> bool
                 return False
             continue
         
-        # special logic for primary_tag
+        # mostly ignore primary_tag because store_entry will be responsible for validating primary_tag's value.
         if column_name == "primary_tag":
             if not DATATYPE_CHECK["str"](data[display_column_name]):
                 if VERBOSITY_LEVEL > 0:
@@ -280,11 +295,11 @@ def check_tags(tags: List[str], database_name: str, table_name: str) -> bool:
                 print(f"Tag \"{tag_id}\" is invalid. Tag IDs must be provided rather than tag names.")
             return False
 
-        if tag_id not in tags_schema:
+        if int(tag_id) not in tags_schema:
             if VERBOSITY_LEVEL > 0:
                 print(f"Tag ID \"{tag_id}\" was not found.")
             return False
         
-        tags_schema.remove(tag_id)
+        tags_schema.remove(int(tag_id))
     
     return True
