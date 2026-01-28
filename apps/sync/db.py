@@ -113,6 +113,8 @@ def store_raw_entry(item: dict, target_database_name: str, target_table_name: st
         target_parent_table_name (str): The name of the target table's parent.
         target_table_type (str): The target table's type.
         id_column_name (str, optional): The name of the ID column (PRIMARY KEY).
+    Raises:
+        Psycopg.Error: When storing the entry fails. store_entry should be encapsulated in a try-catch to rollback when necessary.
         
     Returns:
         int | str | None: The ID (PRIMARY KEY) that was pushed to the data table
@@ -139,12 +141,8 @@ def store_raw_entry(item: dict, target_database_name: str, target_table_name: st
             host="wywywebsite-cache_database",
             port=env.get("POSTGRES_PORT", 5433)
         ) as info_conn:
-        try:
             data_cur = data_conn.execute(sql.SQL("INSERT INTO {table} ({fields}) VALUES({placeholders}) RETURNING {id_column};").format(table=sql.Identifier(target_table_name), fields=sql.SQL(', ').join(map(sql.Identifier, columns)),placeholders=sql.SQL(', ').join(sql.Placeholder() * len(values)), id_column=sql.Identifier(id_column_name)), values)
             id = next(data_cur)[0]
             info_conn.execute("INSERT INTO sync_status (table_name, parent_table_name, table_type, database_name, entry_id, remote_id, sync_timestamp, status) VALUES (%s, %s, %s, %s, %s, NULL, NULL, NULL);", (target_table_name, target_parent_table_name, target_table_type, target_database_name, id)).close()
             data_cur.close()
-        except psycopg.Error as e:
-            data_conn.rollback()
-            info_conn.rollback()
-        return id
+            return id
