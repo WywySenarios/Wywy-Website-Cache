@@ -32,22 +32,12 @@ SECRET_KEY = 'django-insecure-o#&2j^jvh*j#x(nu=%+h+i&@+le=7euo67$_c(ee9^5#-hkpbl
 
 # SECURITY WARNING: don't run with debug turned on in production!
 
-DEV: bool = environ.get("DEV", False).lower() == "true"
+DEV: bool = environ.get("DEV", "false").lower() == "true"
 DEBUG = DEV
 
 ALLOWED_HOSTS = [
-    f".{config["referenceUrls"]["domain"]}",
+    f".{config['referenceUrls']['domain']}",
 ]
-
-if (DEV):
-    ALLOWED_HOSTS += [
-        "http://127.0.0.1:8000",
-    "http://127.0.0.1",
-    "127.0.0.1",
-    "localhost",
-    "http://0.0.0.0",
-    ]
-
 
 # Application definition
 
@@ -76,51 +66,52 @@ MIDDLEWARE = [
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
 # START - CORS
+CORS_ALLOW_CREDENTIALS = True
+CORS_ALLOW_ALL_ORIGINS = False
 CORS_ALLOWED_ORIGINS = [
-    config["referenceUrls"]["main"],
+    config["referenceUrls"]["main"]
 ]
-if (DEV):
-    CORS_ALLOWED_ORIGINS += [
-        "http://localhost:4321"
-    ]
-    
-# CORS & CSRF depend on whether or not it's a dev server
-if (DEV): # dev server
-    CORS_ALLOW_CREDENTIALS = True
-    CORS_ALLOW_ALL_ORIGNS = True
-else: # prod server
-    CORS_ALLOW_CREDENTIALS = False
-    CORS_ALLOW_ALL_ORIGNS = False
+CORS_ALLOW_METHODS = [
+    'DELETE',
+    'GET',
+    'OPTIONS',
+    'PATCH',
+    'POST',
+    'PUT',
+]
+
+CORS_ALLOW_HEADERS = [
+    'accept',
+    'accept-encoding',
+    'authorization',
+    'content-type',
+    'dnt',
+    'origin',
+    'user-agent',
+    'x-csrftoken',
+    'x-requested-with',
+]
 # END - CORS
 
-# START - CSRF
-CSRF_TRUSTED_ORIGINS = [
-    config["referenceUrls"]["main"],
-]
-if (DEV):
-    CSRF_TRUSTED_ORIGINS += ["http://localhost:4321"]
-
+# START - CSRF & SESSION cookies
 # CORS & CSRF depend on whether or not it's a dev server
-if (DEV): # dev server
-    CSRF_COOKIE_SAMESITE = "Strict"
-    CSRF_COOKIE_SECURE = False
+CSRF_TRUSTED_ORIGINS = [
+    "https://ericzhu.me",
+    "https://www.ericzhu.me"
+]
+CSRF_COOKIE_SAMESITE = "Strict" if DEV else "None"
+CSRF_COOKIE_SECURE = False if DEV else True
+CSRF_COOKIE_HTTPONLY = False if DEV else True
+CSRF_USE_SESSIONS = False
+CSRF_COOKIE_PARTITIONED = False if DEV else True
 
-    CSRF_USE_SESIONS = False
-    CSRF_HTTP_COOKIE_ONLY = False
+SESSION_COOKIE_SAMESITE = "Strict" if DEV else "None"
+SESSION_COOKIE_SECURE = False if DEV else True
+SESSION_COOKIE_HTTPONLY = False if DEV else True
+SESSION_COOKIE_PARTITIONED = False if DEV else True
 
-    CSRF_COOKIE_PARTITIONED = False
-    SESSION_COOKIE_SAMESITE = "Strict"
-    SESSION_COOKIE_SECURE = False
-else: # prod server
-    CSRF_COOKIE_SAMESITE = "Lax"
-    CSRF_COOKIE_SECURE = True
-
-    CSRF_USE_SESIONS = True
-    CSRF_HTTP_COOKIE_ONLY = True
-
-    CSRF_COOKIE_PARTITIONED = True
-    SESSION_COOKIE_SAMESITE = "Lax"
-    SESSION_COOKIE_SECURE = True
+SESSION_COOKIE_DOMAIN = 'cache.ericzhu.me'
+CSRF_COOKIE_DOMAIN = 'cache.ericzhu.me'
 
 ROOT_URLCONF = 'sync.urls'
 
