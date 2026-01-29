@@ -1,13 +1,3 @@
-referenceUrls:
-  domain: ericzhu.me
-  main: https://ericzhu.me
-  db: https://db.ericzhu.me
-  cache: https://cache.ericzhu.me
-
-# UNUSED SO FAR:
-# The location of python that you wish to run.
-python: ".venv\\Scripts\\python.exe"
-
 # Webpage
 websiteTitle: "Eric's Website"
 websiteIcon: "/favicon.svg"
