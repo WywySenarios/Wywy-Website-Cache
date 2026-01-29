@@ -36,7 +36,7 @@ DEV: bool = environ.get("DEV", "false").lower() == "true"
 DEBUG = DEV
 
 ALLOWED_HOSTS = [
-    f".{config['referenceUrls']['domain']}",
+    f".{environ["MAIN_DOMAIN"]}",
 ]
 
 # Application definition
@@ -69,7 +69,7 @@ SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOW_ALL_ORIGINS = False
 CORS_ALLOWED_ORIGINS = [
-    config["referenceUrls"]["main"]
+    environ["MAIN_URL"]
 ]
 CORS_ALLOW_METHODS = [
     'DELETE',
@@ -96,8 +96,7 @@ CORS_ALLOW_HEADERS = [
 # START - CSRF & SESSION cookies
 # CORS & CSRF depend on whether or not it's a dev server
 CSRF_TRUSTED_ORIGINS = [
-    "https://ericzhu.me",
-    "https://www.ericzhu.me"
+    environ["MAIN_URL"]
 ]
 CSRF_COOKIE_SAMESITE = "Strict" if DEV else "None"
 CSRF_COOKIE_SECURE = False if DEV else True
