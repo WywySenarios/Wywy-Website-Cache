@@ -4,8 +4,10 @@ services:
     tty: true
     working_dir: /apps/create_tables
     build:
-      context: ../apps/create_tables
+      context: ../
       dockerfile: apps/create_tables/Dockerfile
+      args:
+        CONFIG_PATH: ./../../config.yml
     env_file:
       - path: .env
         required: true
