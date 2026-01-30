@@ -27,23 +27,10 @@ class AuthMiddleware:
     def __call__(self, request: HttpRequest) -> HttpResponse:
         
         # check creds. Deny access if creds are invalid.
-        if self.check_creds(request):
+        # The authentication endpoint does not need authentication (avoid chicken & egg scenario).
+        # This includes CSRF tokens!
+        if request.path.startswith("/auth") or request.path.startswith("/cache/csrf") or self.check_creds(request):
             response = self.get_response(request)
         else:
             response = HttpResponseForbidden("Invalid credentials.")
-        return response
-    
-    def process_view(self, request: HttpRequest, view_func, view_args, view_kwargs) -> None | HttpResponse:
-        # check creds. Deny access if creds are invalid.
-        response: None | HttpResponse
-        
-        # The authentication endpoint does not need authentication (avoid chicken & egg scenario).
-        # This includes CSRF tokens!
-        if request.path.startswith("/auth") or request.path == "/cache/csrf":
-            response = None
-        elif self.check_creds(request):
-            response = None
-        else:
-            response = HttpResponseForbidden("Invalid credentials.")
-        
         return response
