@@ -22,4 +22,5 @@ urlpatterns = [
     path("main/", include("main.urls")),
     path("cache/", include("cache.urls")),
     path("tags", include("tags.urls")),
+    path('auth', include("auth.urls"))
 ]
