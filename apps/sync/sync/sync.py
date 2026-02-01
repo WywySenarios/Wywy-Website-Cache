@@ -125,7 +125,9 @@ def sync() -> None:
                 if status == "failed":
                     raise Warning()
                 with open("/run/secrets/admin", "r") as f:
-                    response = requests.post(endpoint, timeout=5, cookies={
+                    response = requests.post(endpoint, timeout=5, headers={
+                            "Origin": env["CACHE_URL"]
+                        }, cookies={
                         "username": "admin",
                         "password": f.read()
                     }, json=payload)
