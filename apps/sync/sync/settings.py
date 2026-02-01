@@ -103,14 +103,13 @@ CSRF_COOKIE_SECURE = False if DEV else True
 CSRF_COOKIE_HTTPONLY = False if DEV else True
 CSRF_USE_SESSIONS = False
 CSRF_COOKIE_PARTITIONED = False if DEV else True
+CSRF_COOKIE_DOMAIN = environ["CACHE_DOMAIN"]
 
 SESSION_COOKIE_SAMESITE = "Strict" if DEV else "None"
 SESSION_COOKIE_SECURE = False if DEV else True
 SESSION_COOKIE_HTTPONLY = False if DEV else True
 SESSION_COOKIE_PARTITIONED = False if DEV else True
-
-SESSION_COOKIE_DOMAIN = 'cache.ericzhu.me'
-CSRF_COOKIE_DOMAIN = 'cache.ericzhu.me'
+SESSION_COOKIE_DOMAIN = environ["CACHE_DOMAIN"]
 
 ROOT_URLCONF = 'sync.urls'
 
