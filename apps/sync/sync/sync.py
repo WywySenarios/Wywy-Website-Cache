@@ -88,13 +88,16 @@ def sync() -> None:
             
             # @TODO check if the target already exists
             
+            status: None | Literal['updated', 'failed', 'anomalous'] = None
+            
             # contact sql-receptionist and ask for a record addition
             # @TODO sql-receptionist should reject problematic id keys
             payload = dict(next(target_record_cur))
             for k, v in payload.items():
                 if v is None:
                     print(f"Sync failed. Anomalous item: ({database_name}/{table_name} ({parent_table_name})): {payload}")
-                    return
+                    status = 'anomalous'
+                    break
                 elif isinstance(v, datetime.datetime) or isinstance(v, datetime.date) or isinstance(v, datetime.time):
                     payload[k] =  f"'{v.isoformat()}'"
                 elif isinstance(v, str):
@@ -104,25 +107,25 @@ def sync() -> None:
             if "id" in payload:
                 del payload["id"]
             
-            status: None | Literal['updated', 'failed'] = None
-            
-            # correct the foreign key to the master database's key ids. If those key IDs are not yet available, abort.
-            try:
-                match (table_type):
-                    case "tag_aliases":
-                        update_foreign_key(payload, database_name, f"{parent_table_name}_tag_names", "tag_id")
-                    case "tag_groups":
-                        update_foreign_key(payload, database_name, f"{parent_table_name}_tag_names", "tag_id")
-                    case "tags":
-                        update_foreign_key(payload, database_name, f"{parent_table_name}_tag_names", "tag_id")
-                        update_foreign_key(payload, database_name, parent_table_name, "entry_id")
-            except RuntimeError as e:
-                status = "failed"
+            # if there isn't a status yet,
+            if status is None:
+                # correct the foreign key to the master database's key ids. If those key IDs are not yet available, abort.
+                try:
+                    match (table_type):
+                        case "tag_aliases":
+                            update_foreign_key(payload, database_name, f"{parent_table_name}_tag_names", "tag_id")
+                        case "tag_groups":
+                            update_foreign_key(payload, database_name, f"{parent_table_name}_tag_names", "tag_id")
+                        case "tags":
+                            update_foreign_key(payload, database_name, f"{parent_table_name}_tag_names", "tag_id")
+                            update_foreign_key(payload, database_name, parent_table_name, "entry_id")
+                except RuntimeError as e:
+                    status = "failed"
                 
             remote_id: int | str | None = None
             
             try:
-                if status == "failed":
+                if status == "failed" or status == "anomalous":
                     raise Warning()
                 with open("/run/secrets/admin", "r") as f:
                     response = requests.post(endpoint, timeout=5, headers={
@@ -143,7 +146,6 @@ def sync() -> None:
                 status = "anomalous"
                 num_failures += 1
             except Warning as w:
-                status = "failed"
                 num_failures += 1
             else:
                 status = "added"
