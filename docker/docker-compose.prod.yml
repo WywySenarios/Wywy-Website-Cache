@@ -47,6 +47,8 @@ services:
     build:
       context: ../
       dockerfile: apps/sync/Dockerfile
+      args:
+        CONFIG_PATH: ${UNIVERSAL_CONFIG_DIR}/config.yml
     env_file:
       - path: ${UNIVERSAL_CONFIG_DIR}/.env
         required: true
