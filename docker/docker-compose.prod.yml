@@ -22,6 +22,8 @@ services:
     depends_on:
       wywywebsite-cache_database:
         condition: service_healthy
+    volumes:
+      - ${UNIVERSAL_CONFIG_DIR}/config.yml:/apps/create_tables/config.yml
     command: python3 create_tables.py
 
   wywywebsite-cache_cloudflared:
