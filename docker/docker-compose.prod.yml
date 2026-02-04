@@ -11,9 +11,9 @@ services:
     env_file:
       - path: ${UNIVERSAL_CONFIG_DIR}/.env
         required: true
-      - path: ${UNIVERSAL_CONFIG_DIR}/cache/.env
+      - path: ${UNIVERSAL_CONFIG_DIR}/.env.prod
         required: true
-      - path: ${UNIVERSAL_CONFIG_DIR}/cache/.env.prod
+      - path: ${UNIVERSAL_CONFIG_DIR}/cache/.env
         required: true
     environment:
       - DB_PASSWORD=${DATABASE_PASSWORD}
@@ -54,9 +54,9 @@ services:
     env_file:
       - path: ${UNIVERSAL_CONFIG_DIR}/.env
         required: true
-      - path: ${UNIVERSAL_CONFIG_DIR}/cache/.env
+      - path: ${UNIVERSAL_CONFIG_DIR}/.env.prod
         required: true
-      - path: ${UNIVERSAL_CONFIG_DIR}/cache/.env.prod
+      - path: ${UNIVERSAL_CONFIG_DIR}/cache/.env
         required: true
     environment:
       - POSTGRES_PASSWORD=${DATABASE_PASSWORD}
@@ -84,9 +84,9 @@ services:
     env_file:
       - path: ${UNIVERSAL_CONFIG_DIR}/.env
         required: true
-      - path: ${UNIVERSAL_CONFIG_DIR}/cache/.env
+      - path: ${UNIVERSAL_CONFIG_DIR}/.env.prod
         required: true
-      - path: ${UNIVERSAL_CONFIG_DIR}/cache/.env.prod
+      - path: ${UNIVERSAL_CONFIG_DIR}/cache/.env
         required: true
     environment:
       POSTGRES_PASSWORD: ${DATABASE_PASSWORD}
