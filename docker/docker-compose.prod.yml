@@ -119,6 +119,6 @@ networks:
 
 secrets:
   wywywebsite-cache-cloudflared-cloudflare:
-    file: ${SECRETS_DIR}/secrets/cache/cloudflared-cloudflare-token.txt
+    file: ${SECRETS_DIR}/cache/cloudflared-cloudflare-token.txt
   admin:
-    file: ${SECRETS_DIR}/secrets/admin.txt
+    file: ${SECRETS_DIR}/admin.txt
