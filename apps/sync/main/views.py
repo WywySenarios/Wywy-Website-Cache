@@ -1,6 +1,6 @@
 from django.shortcuts import render
 from django.views.decorators.csrf import ensure_csrf_cookie
-from django.http import HttpResponse, JsonResponse, HttpRequest, HttpResponseBadRequest, HttpResponseServerError
+from django.http import HttpResponse, JsonResponse, HttpRequest, HttpResponseBadRequest, HttpResponseServerError, HttpResponseForbidden
 from typing import List, Literal
 import yaml
 import json
@@ -11,7 +11,7 @@ from psycopg import sql
 from os import environ as env
 import datetime
 
-from utils import to_lower_snake_case, get_env_int
+from utils import to_lower_snake_case, get_env_int, chunkify_url
 from schema import check_entry, databases
 from sync.sync import queue_sync
 from db import store_entry, store_raw_entry
@@ -20,8 +20,63 @@ from db import store_entry, store_raw_entry
 with open("config.yml", "r") as file:
     config = yaml.safe_load(file)
 
-@ensure_csrf_cookie
 def index(request: HttpRequest) -> HttpResponse:
+    if request.method == "GET":
+        # look for the target table
+        url_chunks: List[str] = chunkify_url(request.path)
+        print(url_chunks)
+        
+        if len(url_chunks) < 4:
+            return HttpResponseBadRequest("Bad GET URL.")
+        
+        database_name = to_lower_snake_case(url_chunks[1])
+        table_name = to_lower_snake_case(url_chunks[2])
+        
+        # validate database name
+        if database_name not in databases:
+            return HttpResponseBadRequest(f"Database \"{database_name}\" was not found.")
+        # validate table name
+        if table_name not in databases[database_name]:
+            return HttpResponseBadRequest(f"Table \"{table_name}\" was not found inside database \"{database_name}\"")
+        
+        # check if the target table has read permissions
+        if not databases[database_name][table_name]["read"]:
+            return HttpResponseForbidden(f"{database_name}/{table_name} does not have read permissions.")
+        
+        # fetch the requested data
+        # @TODO more control over the exact parts of the query
+        with psycopg.connect(
+            dbname=database_name,
+            user=env.get("POSTGRES_USER", "postgres"),
+            password=env.get("POSTGRES_PASSWORD", "password"),
+            host="wywywebsite-cache_database",
+            port=env.get("POSTGRES_PORT", 5433),
+        ) as conn:
+            with conn.cursor() as cur:
+                # @TODO change to tag_aliases
+                # @TODO LIMIT
+                cur.execute(sql.SQL("SELECT * FROM {table_name};").format(table_name=sql.Identifier(f"{table_name}_tag_names")))
+                
+                output = {"columns": [column.name for column in cur.description], "data": cur.fetchall()}
+        
+        # format the data
+        date_columns: List[int] = []
+        # string_columns: List[int] = []
+        if len(output["data"]) > 0:
+            for i in range(len(output["data"][0])):
+                item = output["data"][0][i]
+                if isinstance(item, datetime.datetime) or isinstance(item, datetime.date) or isinstance(item, datetime.time):
+                    date_columns.append(i)
+                # elif isinstance(item, str):
+                    # string_columns.append(i)
+
+            for row in output["data"]:
+                for date_index in date_columns:
+                    row[date_index] = row[date_index].isoformat()
+        
+        # return the data
+        return JsonResponse(output)
+    
     if request.method == "POST" and request.content_type == "application/json":
         # look for the target table
         url_chunks: List[str] = request.path.split("/")
