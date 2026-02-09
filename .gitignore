@@ -1,9 +1,6 @@
 # secrets
 secrets
 
-# postgres app
-apps/postgres
-
 # pycache
 **/__pycache__
 
