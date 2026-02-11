@@ -230,6 +230,7 @@ def pull(database_name: str, parent_table_name: str, table_type: str = "data") -
                     # check to see that the column names are valid
                     columns = set(data["columns"])
                     id_column_name: str = "id"
+                    remove_id_column: bool = True
                     table_name: str = parent_table_name
                     match(table_type):
                         # case "data": @TODO
@@ -248,6 +249,7 @@ def pull(database_name: str, parent_table_name: str, table_type: str = "data") -
                                 raise RuntimeError("Malformed column names.")
                             
                             id_column_name = "alias"
+                            remove_id_column = False
                             table_name = f"{parent_table_name}_tag_aliases"
                         case "tag_groups":
                             if {"id", "tag_id", "group_name"} != columns:
@@ -265,6 +267,12 @@ def pull(database_name: str, parent_table_name: str, table_type: str = "data") -
                         
                         if len(row) != num_columns:
                             raise RuntimeError("Malformed row size.")
+                    
+                    if remove_id_column:
+                        id_column_index = data["columns"].index(id_column_name)
+                        for row in data["data"]:
+                            row.pop(id_column_index)
+                        data["columns"].pop(id_column_index)
                     
                     for row in data["data"]:
                         store_entry(data_conn, info_conn, data["columns"], row, database_name, table_name, parent_table_name, table_type,id_column_name=id_column_name)
