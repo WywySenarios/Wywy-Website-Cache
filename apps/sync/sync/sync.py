@@ -207,9 +207,9 @@ def pull(database_name: str, parent_table_name: str, table_type: str = "data") -
                 endpoint: str = ""
                 match(table_type):
                     case "data":
-                        endpoint = f"{env["DATABASE_URL"]}/{database_name}/{parent_table_name}/{table_type}"
+                        endpoint = f"{env["DATABASE_URL"]}/{database_name}/{parent_table_name}"
                     case _:
-                        endpoint = f"{env["DATABASE_URL"]}/{database_name}/{parent_table_name}/{table_type}/{table_name.removeprefix(f"{parent_table_name}_").removesuffix(f"_{table_type}")}"
+                        endpoint = f"{env["DATABASE_URL"]}/{database_name}/{parent_table_name}/{table_type}"
                 
                 response: Response
                 # get all data
