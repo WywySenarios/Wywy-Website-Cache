@@ -14,7 +14,7 @@ import datetime
 from utils import to_lower_snake_case, get_env_int, chunkify_url
 from schema import check_entry, databases
 from sync.sync import queue_sync
-from db import store_entry, store_raw_entry
+from db import store_entry, decompose_entry
 
 # peak at config
 with open("config.yml", "r") as file:
@@ -148,21 +148,18 @@ def index(request: HttpRequest) -> HttpResponse:
             try:
                 # @TODO atomicity
                 # main entry
-                entry_id = store_entry(data_conn, info_conn, f_data["data"], table["schema"], database_name, table_name, table_name, "data", tagging=("tagging" in table and table["tagging"] == True))
+                entry_id = store_entry(data_conn, info_conn, *decompose_entry(f_data["data"], table["schema"], tagging=("tagging" in table and table["tagging"] == True)), database_name, table_name, table_name, "data")
                 
                 # tags
                 if "tags" in f_data:
                     for tag_id in f_data["tags"]:
-                        store_raw_entry(data_conn, info_conn, {
-                            "entry_id": entry_id,
-                            "tag_id": tag_id
-                        }, database_name, f"{table_name}_tags", table_name, "tags")
+                        store_entry(data_conn, info_conn, ["entry_id", "tag_id"], [entry_id, tag_id], database_name, f"{table_name}_tags", table_name, "tags")
 
                 # descriptors
                 if "descriptors" in f_data:
                     for descriptor_name in f_data["descriptors"]:
                         for descriptor_info in f_data["descriptors"][descriptor_name]:
-                            store_entry(data_conn, info_conn, descriptor_info, table["descriptors"][descriptor_name]["schema"], database_name, f"{table_name}_{descriptor_name}_descriptors", table_name, "descriptors")
+                            store_entry(data_conn, info_conn, *decompose_entry(descriptor_info, table["descriptors"][descriptor_name]["schema"]), database_name, f"{table_name}_{descriptor_name}_descriptors", table_name, "descriptors")
             except (psycopg.Error, ValueError) as e:
                 data_conn.rollback()
                 info_conn.rollback()

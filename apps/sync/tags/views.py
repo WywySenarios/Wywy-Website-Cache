@@ -9,7 +9,7 @@ import json
 from schema import databases
 from utils import chunkify_url, to_lower_snake_case, remove_quotation
 from sync.sync import queue_sync
-from db import store_raw_entry
+from db import store_entry
 
 # Create your views here.
 def index(request: HttpRequest) -> HttpResponse:
@@ -84,7 +84,7 @@ def index(request: HttpRequest) -> HttpResponse:
                             return HttpResponseBadRequest("Erroneous information was provided.")
 
                         # store data
-                        store_raw_entry(data_conn, info_conn, data, database_name, f"{table_name}_tags", table_name, "tags")
+                        store_entry(data_conn, info_conn, list(data.keys()), list(data.values()), database_name, f"{table_name}_tags", table_name, "tags")
                     case "tag_names":
                         # validate input
                         if "tag_name" not in data:
@@ -99,13 +99,10 @@ def index(request: HttpRequest) -> HttpResponse:
 
                         # store data
                         # @TODO atomicity
-                        next_id = store_raw_entry(data_conn, info_conn, data, database_name, f"{table_name}_tag_names", table_name, "tag_names")
+                        next_id = store_entry(data_conn, info_conn, list(data.keys()), list(data.values()), database_name, f"{table_name}_tag_names", table_name, "tag_names")
 
                         # automatically add the related alias
-                        store_raw_entry(data_conn, info_conn, {
-                            "alias": data["tag_name"],
-                            "tag_id": next_id
-                        }, database_name, f"{table_name}_tag_aliases", table_name, "tag_aliases", id_column_name="alias")
+                        store_entry(data_conn, info_conn, ["alias", "tag_id"], [data["tag_name"], next_id], database_name, f"{table_name}_tag_aliases", table_name, "tag_aliases", id_column_name="alias")
                     case "tag_aliases":
                         # validate input
                         if "alias" not in data:
@@ -122,7 +119,7 @@ def index(request: HttpRequest) -> HttpResponse:
                         # unquote necessary fields
                         data["alias"] = remove_quotation(data["alias"])
                         
-                        store_raw_entry(data_conn, info_conn, data, database_name, f"{table_name}_tag_aliases", table_name, "tag_aliases", id_column_name="alias")
+                        store_entry(data_conn, info_conn, list(data.keys()), list(data.values()), database_name, f"{table_name}_tag_aliases", table_name, "tag_aliases", id_column_name="alias")
                     case "tag_groups":
                         # validate input
                         if "group_name" not in data:
@@ -139,7 +136,7 @@ def index(request: HttpRequest) -> HttpResponse:
                         # unquote necessary fields
                         data["group_name"] = remove_quotation(data["group_name"])
                         
-                        store_raw_entry(data_conn, info_conn, data, database_name, f"{table_name}_tag_groups", table_name, "tag_groups")
+                        store_entry(data_conn, info_conn, list(data.keys()), list(data.values()), database_name, f"{table_name}_tag_groups", table_name, "tag_groups")
                     case _:
                         return HttpResponseBadRequest("Invalid URL. Expecting tags/[databaseName]/[tableName]/[tag_names/tag_aliases].")
             except psycopg.Error as e:
