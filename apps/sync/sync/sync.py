@@ -2,6 +2,7 @@
 import threading
 import yaml
 import requests
+from requests import Response, HTTPError
 import datetime
 from os import environ as env
 import psycopg
@@ -11,7 +12,7 @@ from typing import List, Literal
 
 from utils import to_lower_snake_case, get_env_int
 from schema import databases
-from db import update_foreign_key
+from db import update_foreign_key, store_entry
 
 with open("config.yml", "r") as file:
     config = yaml.safe_load(file)
@@ -169,6 +170,109 @@ def sync() -> None:
     
     # print("Sync complete.")
 
+def pull(database_name: str, parent_table_name: str, table_type: str = "data") -> None:
+    """Pulls in entries from the master database.
+
+    Args:
+        database_name (str): The database containing the respective table.
+        parent_table_name (str): The parent table name, or the table name if the table has no parent.
+        table_type (str, optional): The target table type. Defaults to "data".
+        
+    Raises:
+        HTTPError: When the master database cannot be contacted.
+        ValueError: When a schema column is missing from an entry to record.
+        Psycopg.Error: When storing an entry fails.
+        RuntimeError: When the data the master database returned is invalid, or when table_type is invalid.
+    """
+    if table_type not in {"tags", "tag_names", "tag_aliases", "tag_groups"}:
+        raise RuntimeError(f"Table type {table_type} not supported for pulling.")
+    
+    with psycopg.connect(
+            dbname=database_name,
+            user=env.get("POSTGRES_USER", "postgres"),
+            password=env.get("POSTGRES_PASSWORD", "password"),
+            host="wywywebsite-cache_database",
+            port=env.get("POSTGRES_PORT", 5433)
+        ) as data_conn, psycopg.connect(
+            dbname="info",
+            user=env.get("POSTGRES_USER", "postgres"),
+            password=env.get("POSTGRES_PASSWORD", "password"),
+            host="wywywebsite-cache_database",
+            port=env.get("POSTGRES_PORT", 5433)
+        ) as info_conn:
+            try:
+                # @TODO tables with many entries
+                
+                # find the correct endpoint to GET from
+                endpoint: str = ""
+                match(table_type):
+                    case "data":
+                        endpoint = f"{env["DATABASE_URL"]}/{database_name}/{parent_table_name}/{table_type}"
+                    case _:
+                        endpoint = f"{env["DATABASE_URL"]}/{database_name}/{parent_table_name}/{table_type}/{table_name.removeprefix(f"{parent_table_name}_").removesuffix(f"_{table_type}")}"
+                
+                response: Response
+                # get all data
+                with open("/run/secrets/admin", "r") as f:
+                    response = requests.get(endpoint, timeout=5, headers={
+                                "Origin": env["CACHE_URL"]
+                            }, cookies={
+                            "username": "admin",
+                            "password": f.read()
+                        })
+                    response.raise_for_status()
+                    
+                    data = response.json()
+                    if data is None or "data" not in data or not isinstance(data["data"], list) or "columns" not in data or not isinstance(data["columns"], list):
+                        raise RuntimeError("Invalid data received.")
+
+                    # check if the schema matches
+                    # check to see that the column names are valid
+                    columns = set(data["columns"])
+                    id_column_name: str = "id"
+                    table_name: str = parent_table_name
+                    match(table_type):
+                        # case "data": @TODO
+                        case "tags":
+                            if {"id", "entry_id", "tag_id"} != columns:
+                                raise RuntimeError("Malformed column names.")
+                            
+                            table_name = f"{parent_table_name}_tags"
+                        case "tag_names":
+                            if {"id", "tag_name"} != columns:
+                                raise RuntimeError("Malformed column names.")
+                            
+                            table_name = f"{parent_table_name}_tag_names"
+                        case "tag_aliases":
+                            if {"alias", "tag_id"} != columns:
+                                raise RuntimeError("Malformed column names.")
+                            
+                            id_column_name = "alias"
+                            table_name = f"{parent_table_name}_tag_aliases"
+                        case "tag_groups":
+                            if {"id", "tag_id", "group_name"} != columns:
+                                raise RuntimeError("Malformed column names.")
+                            
+                            table_name = f"{parent_table_name}_tag_groups"
+                        case _:
+                            raise RuntimeError(f"Invalid table type \"{table_type}\"")
+                    
+                    num_columns = len(data["columns"])
+                    
+                    for row in data["data"]:
+                        if not isinstance(row, list):
+                            raise RuntimeError("Malformed row type.")
+                        
+                        if len(row) != num_columns:
+                            raise RuntimeError("Malformed row size.")
+                    
+                    for row in data["data"]:
+                        store_entry(data_conn, info_conn, data["columns"], row, database_name, table_name, parent_table_name, table_type,id_column_name=id_column_name)
+                    
+            except (psycopg.Error, ValueError, HTTPError) as e:
+                data_conn.rollback()
+                info_conn.rollback()
+                raise
 def queue_sync() -> None:
     SYNC_EVENT.set()
 
