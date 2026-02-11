@@ -13,7 +13,6 @@ def index(request: HttpRequest) -> HttpResponse:
     if request.method == "POST":
         # look for the target table
         url_chunks: List[str] = chunkify_url(request.path)
-        print(url_chunks)
         if len(url_chunks) != 4:
             return HttpResponseBadRequest("Bad POST URL.")
         database_name = to_lower_snake_case(url_chunks[1])
