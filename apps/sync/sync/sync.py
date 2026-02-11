@@ -113,12 +113,12 @@ def sync() -> None:
                 try:
                     match (table_type):
                         case "tag_aliases":
-                            update_foreign_key(payload, database_name, f"{parent_table_name}_tag_names", "tag_id")
+                            update_foreign_key(payload, database_name, f"{parent_table_name}_tag_names", "tag_id", target_type=int)
                         case "tag_groups":
-                            update_foreign_key(payload, database_name, f"{parent_table_name}_tag_names", "tag_id")
+                            update_foreign_key(payload, database_name, f"{parent_table_name}_tag_names", "tag_id", target_type=int)
                         case "tags":
-                            update_foreign_key(payload, database_name, f"{parent_table_name}_tag_names", "tag_id")
-                            update_foreign_key(payload, database_name, parent_table_name, "entry_id")
+                            update_foreign_key(payload, database_name, f"{parent_table_name}_tag_names", "tag_id", target_type=int)
+                            update_foreign_key(payload, database_name, parent_table_name, "entry_id", target_type=int)
                 except RuntimeError as e:
                     status = "failed"
                 

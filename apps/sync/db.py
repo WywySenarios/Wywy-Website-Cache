@@ -27,17 +27,20 @@ def get_remote_id(database_name: str, table_name: str, id: int | str) -> int | s
         info_cur.close()
         return output
 
-def update_foreign_key(entry: dict, database_name: str, table_name: str, target: str) -> None:
+def update_foreign_key(entry: dict, database_name: str, table_name: str, target: str, target_type: type = None) -> None:
     """Updates one foreign key of the given entry.
 
     Args:
         entry (dict): The entry to modify.
         database_name (str): The related database name.
         table_name (str): The target table name (i.e. the table that contains the FKEY).
-        targets (str): The key to modify
+        targets (str): The key to modify.
+        target_type (type, Optional): The expected type.
 
     Raises:
         RuntimeError: Raises a runtime error if the remote ID is not found.
+        TypeError: When the type coercion fails.
+        ValueError: When the type coercion fails.
     """
     if target not in entry:
         return
@@ -45,6 +48,14 @@ def update_foreign_key(entry: dict, database_name: str, table_name: str, target:
     remote_id = get_remote_id(database_name, table_name, entry[target])
     if remote_id is None:
         raise RuntimeError("Remote ID not found.")
+    
+    if target_type is not None:
+        try:
+            remote_id = target_type(remote_id)
+        except (ValueError, TypeError) as e:
+            print(f"Cannot coerce `{remote_id}` to `{target_type.__name__}`")
+            raise
+    
     entry[target] = remote_id
 
 def decompose_entry(item: dict, schema: dict, tagging: bool = False) -> Tuple[List[str], list]:
