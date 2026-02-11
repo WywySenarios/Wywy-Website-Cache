@@ -185,7 +185,7 @@ def pull(database_name: str, parent_table_name: str, table_type: str = "data") -
         RuntimeError: When the data the master database returned is invalid, or when table_type is invalid.
     """
     if table_type not in {"tags", "tag_names", "tag_aliases", "tag_groups"}:
-        raise RuntimeError(f"Table type {table_type} not supported for pulling.")
+        raise ValueError(f"Table type {table_type} not supported for pulling.")
     
     with psycopg.connect(
             dbname=database_name,
