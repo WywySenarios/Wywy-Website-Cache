@@ -11,6 +11,8 @@ services:
     env_file:
       - path: ${UNIVERSAL_CONFIG_DIR}/.env
         required: true
+      - path: ${UNIVERSAL_CONFIG_DIR}/.env.dev
+        required: true
       - path: ${UNIVERSAL_CONFIG_DIR}/cache/.env
         required: true
       - path: ${UNIVERSAL_CONFIG_DIR}/cache/.env.dev
@@ -40,6 +42,8 @@ services:
     env_file:
       - path: ${UNIVERSAL_CONFIG_DIR}/.env
         required: true
+      - path: ${UNIVERSAL_CONFIG_DIR}/.env.dev
+        required: true
       - path: ${UNIVERSAL_CONFIG_DIR}/cache/.env
         required: true
       - path: ${UNIVERSAL_CONFIG_DIR}/cache/.env.dev
@@ -67,6 +71,8 @@ services:
     restart: always
     env_file:
       - path: ${UNIVERSAL_CONFIG_DIR}/.env
+        required: true
+      - path: ${UNIVERSAL_CONFIG_DIR}/.env.dev
         required: true
       - path: ${UNIVERSAL_CONFIG_DIR}/cache/.env
         required: true
