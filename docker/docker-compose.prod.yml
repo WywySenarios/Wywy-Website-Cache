@@ -74,7 +74,9 @@ services:
   # @TODO secrets for db authentication
   wywywebsite-cache_database:
     container_name: wywywebsite-cache_postgres
-    image: postgres
+    build:
+      context: ../
+      dockerfile: apps/postgres/Dockerfile
     restart: always
     env_file:
       - path: ${UNIVERSAL_CONFIG_DIR}/.env
