@@ -210,8 +210,6 @@ def check_entry(entry: dict, database_name: str, table_info: dict) -> bool:
     
     return True
 
-
-# @TODO verify every entry that is needed is inside
 def check_item(data: dict, schema: dict, require_inclusion: bool = True) -> bool:
     """Checks the given data against the given schema.
 
@@ -265,6 +263,7 @@ def check_item(data: dict, schema: dict, require_inclusion: bool = True) -> bool
         # @TODO min/max, etc. checks
     
     # check if all columns are present
+    # @TODO optional entries
     if (require_inclusion):
         for column_name in schema:
             if not column_name in data:
