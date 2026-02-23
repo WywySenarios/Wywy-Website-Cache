@@ -78,4 +78,7 @@ def get_env_int(env_name: str, default_value: int = 0):
     Returns:
         int: The respective value.
     """
-    return int(env.get(env_name, default_value)) if env.get(env_name, default_value).isdigit() else default_value
+    try:
+        int(env[env_name])
+    except:
+        return default_value
