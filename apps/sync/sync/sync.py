@@ -1,6 +1,5 @@
 # @TODO fix multithreading database transaction issues >:(
 import threading
-import yaml
 import requests
 from requests import Response, HTTPError
 import datetime
@@ -8,14 +7,10 @@ from os import environ as env
 import psycopg
 from psycopg.rows import dict_row
 from psycopg import sql
-from typing import List, Literal
+from typing import Literal, Any, cast
 
-from utils import to_lower_snake_case, get_env_int
-from schema import databases
+from utils import get_env_int
 from db import update_foreign_key, store_entry
-
-with open("config.yml", "r") as file:
-    config = yaml.safe_load(file)
 
 SYNC_VERBOSITY = get_env_int("SYNC_VERBOSITY", 0)
 
@@ -63,6 +58,8 @@ def sync() -> None:
             match(table_type):
                 case "tag_aliases":
                     id_column_name = "alias"
+                case _:
+                    pass
             
             database_name: str = target[4]
             target_id: str = target[5]
@@ -81,7 +78,8 @@ def sync() -> None:
                 user=env.get("POSTGRES_USER", "postgres"),
                 password=env.get("POSTGRES_PASSWORD", "password"),
                 host="wywywebsite-cache_database",
-                port=env.get("POSTGRES_PORT", 5433), row_factory=dict_row
+                port=env.get("POSTGRES_PORT", 5433),
+                row_factory=dict_row # type: ignore[arg-type]
             )
             target_record_cur = target_record_conn.execute(sql.SQL("""
                                     SELECT * FROM {table} WHERE {id_column_name}=%s;
@@ -89,7 +87,7 @@ def sync() -> None:
             
             # @TODO check if the target already exists
             
-            status: None | Literal['updated', 'failed', 'anomalous'] = None
+            status: None | Literal['updated', 'failed', 'anomalous', 'added'] = None
             
             # contact sql-receptionist and ask for a record addition
             # @TODO sql-receptionist should reject problematic id keys
@@ -120,7 +118,9 @@ def sync() -> None:
                         case "tags":
                             update_foreign_key(payload, database_name, f"{parent_table_name}_tag_names", "tag_id", target_type=int)
                             update_foreign_key(payload, database_name, parent_table_name, "entry_id", target_type=int)
-                except RuntimeError as e:
+                        case _:
+                            pass
+                except RuntimeError:
                     status = "failed"
                 
             remote_id: int | str | None = None
@@ -140,13 +140,13 @@ def sync() -> None:
                     remote_id = response.text
                     
                     if (not remote_id): raise ValueError("remote_id is not valid.")
-            except (requests.HTTPError, requests.exceptions.RequestException) as e:
+            except (requests.HTTPError, requests.exceptions.RequestException):
                 status = "failed"
                 num_failures += 1
-            except ValueError as e:
+            except ValueError:
                 status = "anomalous"
                 num_failures += 1
-            except Warning as w:
+            except Warning:
                 num_failures += 1
             else:
                 status = "added"
@@ -264,6 +264,7 @@ def pull(database_name: str, parent_table_name: str, table_type: str = "data") -
                     for row in data["data"]:
                         if not isinstance(row, list):
                             raise RuntimeError("Malformed row type.")
+                        row = cast(list[Any], row)
                         
                         if len(row) != num_columns:
                             raise RuntimeError("Malformed row size.")
@@ -277,7 +278,7 @@ def pull(database_name: str, parent_table_name: str, table_type: str = "data") -
                     for row in data["data"]:
                         store_entry(data_conn, info_conn, data["columns"], row, database_name, table_name, parent_table_name, table_type,id_column_name=id_column_name)
                     
-            except (psycopg.Error, ValueError, HTTPError) as e:
+            except (psycopg.Error, ValueError, HTTPError):
                 data_conn.rollback()
                 info_conn.rollback()
                 raise

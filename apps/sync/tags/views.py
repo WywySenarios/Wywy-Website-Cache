@@ -1,4 +1,3 @@
-from django.shortcuts import render
 from django.http import HttpResponse, JsonResponse, HttpRequest, HttpResponseBadRequest, HttpResponseServerError
 import psycopg
 from psycopg.rows import dict_row
@@ -26,7 +25,7 @@ def index(request: HttpRequest) -> HttpResponse:
     if table_name not in databases[database_name]:
         return HttpResponseBadRequest(f"Table \"{database_name}/{table_name}\" was not found.")
 
-    if "tagging" not in databases[database_name][table_name] or not databases[database_name][table_name]["tagging"] == True:
+    if databases[database_name][table_name].get("tagging", False) is not True:
         return HttpResponseBadRequest(f"Tagging is not enabled on table \"{database_name}/{table_name}\"")
     
     # only accept GET requests
@@ -38,7 +37,7 @@ def index(request: HttpRequest) -> HttpResponse:
             password=env.get("POSTGRES_PASSWORD", "password"),
             host="wywywebsite-cache_database",
             port=env.get("POSTGRES_PORT", 5433),
-            row_factory=dict_row
+            row_factory=dict_row  # pyright: ignore[reportArgumentType]
         ) as conn:
             with conn.cursor() as cur:
                 # @TODO change to tag_aliases
@@ -139,7 +138,7 @@ def index(request: HttpRequest) -> HttpResponse:
                         store_entry(data_conn, info_conn, list(data.keys()), list(data.values()), database_name, f"{table_name}_tag_groups", table_name, "tag_groups")
                     case _:
                         return HttpResponseBadRequest("Invalid URL. Expecting tags/[databaseName]/[tableName]/[tag_names/tag_aliases].")
-            except psycopg.Error as e:
+            except psycopg.Error:
                 data_conn.rollback()
                 info_conn.rollback()
                 return HttpResponseServerError("Database/schema check faliure. Contact the website administrator and dev for a fix.")

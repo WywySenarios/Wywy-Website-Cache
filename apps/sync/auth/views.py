@@ -1,5 +1,4 @@
-from django.shortcuts import render
-from django.http import QueryDict, HttpResponse, HttpRequest, HttpResponseBadRequest, HttpResponseForbidden
+from django.http import HttpResponse, HttpRequest, HttpResponseBadRequest, HttpResponseForbidden
 
 from os import environ
 import json

@@ -68,7 +68,7 @@ def chunkify_url(url: str, max_chunks: int = -1) -> List[str]:
     else:
         return chunky_url.split("/")[:max_chunks]
 
-def get_env_int(env_name: str, default_value: int = 0):
+def get_env_int(env_name: str, default_value: int = 0) -> int:
     """Attempts to get the integer value of an environment variable. Cannot parse negative numbers.
 
     Args:
@@ -79,6 +79,6 @@ def get_env_int(env_name: str, default_value: int = 0):
         int: The respective value.
     """
     try:
-        int(env[env_name])
+        return int(env[env_name])
     except:
         return default_value

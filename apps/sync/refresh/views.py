@@ -1,7 +1,7 @@
-from django.shortcuts import render
 from django.http import HttpResponse, HttpRequest, HttpResponseBadRequest, HttpResponseServerError, HttpResponseForbidden
 from requests import HTTPError
 from typing import List
+from Wywy_Website_Types import DictTableInfo
 import psycopg
 
 from utils import to_lower_snake_case, chunkify_url
@@ -19,7 +19,7 @@ def index(request: HttpRequest) -> HttpResponse:
         table_name = to_lower_snake_case(url_chunks[2])
         if not database_name in databases or not table_name in databases[database_name]:
             return HttpResponseBadRequest(f"Database \"{database_name}\" was not found.")
-        table: dict = databases[database_name][table_name]
+        table: DictTableInfo = databases[database_name][table_name]
         
         # check for write permissions
         if "write" not in table or table["write"] != True:

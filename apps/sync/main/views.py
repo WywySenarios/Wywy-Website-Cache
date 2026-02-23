@@ -1,24 +1,16 @@
-from django.shortcuts import render
-from django.views.decorators.csrf import ensure_csrf_cookie
 from django.http import HttpResponse, JsonResponse, HttpRequest, HttpResponseBadRequest, HttpResponseServerError, HttpResponseForbidden
-from typing import List, Literal
-import yaml
+from typing import List
+from Wywy_Website_Types import DictTableInfo, Entry, EntryTableData
 import json
-import re
 import psycopg
-from psycopg.rows import dict_row
 from psycopg import sql
 from os import environ as env
 import datetime
 
-from utils import to_lower_snake_case, get_env_int, chunkify_url
+from utils import to_lower_snake_case, chunkify_url
 from schema import check_entry, databases
 from sync.sync import queue_sync
 from db import store_entry, decompose_entry
-
-# peak at config
-with open("config.yml", "r") as file:
-    config = yaml.safe_load(file)
 
 def index(request: HttpRequest) -> HttpResponse:
     if request.method == "GET":
@@ -56,7 +48,10 @@ def index(request: HttpRequest) -> HttpResponse:
                 # @TODO LIMIT
                 cur.execute(sql.SQL("SELECT * FROM {table_name};").format(table_name=sql.Identifier(f"{table_name}_tag_names")))
                 
-                output = {"columns": [column.name for column in cur.description], "data": cur.fetchall()}
+                if cur.description is None:
+                    return HttpResponseServerError("Could not fetch the column schema from the database.")
+                
+                output: EntryTableData = {"columns": [column.name for column in cur.description], "data": [list(row) for row in cur.fetchall()]}
         
         # format the data
         date_columns: List[int] = []
@@ -85,7 +80,7 @@ def index(request: HttpRequest) -> HttpResponse:
         table_name = to_lower_snake_case(url_chunks[3])
         if not database_name in databases or not table_name in databases[database_name]:
             return HttpResponseBadRequest(f"Database \"{database_name}\" was not found.")
-        table: dict = databases[database_name][table_name]
+        table: DictTableInfo = databases[database_name][table_name]
 
         
         # load in body
@@ -98,7 +93,7 @@ def index(request: HttpRequest) -> HttpResponse:
             return HttpResponse("The data section must be composed of JSON objects.")
 
         # make a copy of data with snake_cased keys
-        f_data: dict = {
+        f_data: Entry = {
             "data": {
                 to_lower_snake_case(key): value
                 for key, value in data["data"].items()
@@ -159,8 +154,11 @@ def index(request: HttpRequest) -> HttpResponse:
                 if "descriptors" in f_data:
                     for descriptor_name in f_data["descriptors"]:
                         for descriptor_info in f_data["descriptors"][descriptor_name]:
+                            if "descriptors" not in table:
+                                raise ValueError("Descriptors not in table?")
+                            
                             store_entry(data_conn, info_conn, *decompose_entry(descriptor_info, table["descriptors"][descriptor_name]["schema"]), database_name, f"{table_name}_{descriptor_name}_descriptors", table_name, "descriptors")
-            except (psycopg.Error, ValueError) as e:
+            except (psycopg.Error, ValueError):
                 data_conn.rollback()
                 info_conn.rollback()
                 return HttpResponseServerError("Database/schema check faliure. Contact the website administrator and dev for a fix.")

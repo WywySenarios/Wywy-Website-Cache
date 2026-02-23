@@ -2,38 +2,20 @@ import json
 from typing import List
 from django.http import HttpRequest, HttpResponse, HttpResponseBadRequest, JsonResponse
 from django.views.decorators.csrf import ensure_csrf_cookie, get_token
-import yaml
+from schema import databases
+from typing import Any
+from Wywy_Website_Types import DictTableInfo
+from config import CONFIG
 
 from schema import check_item
 from utils import to_lower_snake_case
 
-# peak at config
-with open("config.yml", "r") as file:
-    config = yaml.safe_load(file)
-
-cache_values: dict[str, dict[str, dict | None]] = {
+cache_values: dict[str, dict[str, dict[str, Any] | None]] = {
     to_lower_snake_case(db["dbname"]): {
         to_lower_snake_case(table["tableName"]): None
         for table in db["tables"]
     }
-    for db in config["data"]
-}
-
-# convert all the table schemas into dictionaries with snake_case keys
-databases: dict = {
-    to_lower_snake_case(db["dbname"]): {
-        to_lower_snake_case(table["tableName"]): {
-            "read": table["read"],
-            "write": table["write"],
-            "entrytype": table["entrytype"],
-            "schema": {
-                to_lower_snake_case(item["name"]): item
-                for item in table["schema"]
-            }
-        }
-        for table in db["tables"]
-    }
-    for db in config["data"]
+    for db in CONFIG["data"]
 }
 
 @ensure_csrf_cookie
@@ -47,7 +29,7 @@ def index(request: HttpRequest) -> HttpResponse:
         table_name = to_lower_snake_case(url_chunks[3])
         if not database_name in databases or not table_name in databases[database_name]:
             return HttpResponseBadRequest()
-        table: dict = databases[database_name][table_name]
+        table: DictTableInfo = databases[database_name][table_name]
 
         
         # load in body

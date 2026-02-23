@@ -1,7 +1,8 @@
 from django.http import HttpRequest, HttpResponse, HttpResponseForbidden
+from typing import Callable
 
 class AuthMiddleware:
-    def __init__(self, get_response) -> None:
+    def __init__(self, get_response: Callable[[HttpRequest], HttpResponse]) -> None:
         self.get_response = get_response
         
         with open("/run/secrets/admin", "r") as f:

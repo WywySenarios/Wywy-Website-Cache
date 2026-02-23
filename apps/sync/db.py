@@ -1,7 +1,7 @@
 import psycopg
 from psycopg import sql
-import requests
-from typing import List, overload, Tuple
+from typing import Any, List, Tuple
+from Wywy_Website_Types import EntryData, DictSchema
 from os import environ as env
 
 def get_remote_id(database_name: str, table_name: str, id: int | str) -> int | str | None:
@@ -27,7 +27,7 @@ def get_remote_id(database_name: str, table_name: str, id: int | str) -> int | s
         info_cur.close()
         return output
 
-def update_foreign_key(entry: dict, database_name: str, table_name: str, target: str, target_type: type = None) -> None:
+def update_foreign_key(entry: EntryData, database_name: str, table_name: str, target: str, target_type: type | None = None) -> None:
     """Updates one foreign key of the given entry.
 
     Args:
@@ -52,13 +52,13 @@ def update_foreign_key(entry: dict, database_name: str, table_name: str, target:
     if target_type is not None:
         try:
             remote_id = target_type(remote_id)
-        except (ValueError, TypeError) as e:
+        except (ValueError, TypeError):
             print(f"Cannot coerce `{remote_id}` to `{target_type.__name__}`")
             raise
     
     entry[target] = remote_id
 
-def decompose_entry(item: dict, schema: dict, tagging: bool = False) -> Tuple[List[str], list]:
+def decompose_entry(item: EntryData, schema: DictSchema, tagging: bool = False) -> Tuple[List[str], List[Any]]:
     """Decomposes an entry into columns and values based on the given schema.
 
     Args:
@@ -74,7 +74,7 @@ def decompose_entry(item: dict, schema: dict, tagging: bool = False) -> Tuple[Li
         Tuple[List[str], list]: The columns and values of the entry.
     """
     columns: List[str] = []
-    values: list = []
+    values: list[Any] = []
     
     # check for primary tag column
     if tagging:
@@ -92,7 +92,7 @@ def decompose_entry(item: dict, schema: dict, tagging: bool = False) -> Tuple[Li
     
     return (columns, values)
 
-def store_entry(data_conn: psycopg.Connection, info_conn: psycopg.Connection, columns: List[str], values: list, target_database_name: str, target_table_name: str, target_parent_table_name: str, target_table_type: str, id_column_name: str = "id") -> int | str:
+def store_entry(data_conn: psycopg.Connection, info_conn: psycopg.Connection, columns: List[str], values: list[Any], target_database_name: str, target_table_name: str, target_parent_table_name: str, target_table_type: str, id_column_name: str = "id") -> int | str | None:
     """Stores an entry, assuming that item is valid, does not contain extra columns, and is not missing any columns.
 
     Args:

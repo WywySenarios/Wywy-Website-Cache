@@ -1,14 +1,16 @@
 # datatype checking functions
 import re
-import yaml
 from utils import to_lower_snake_case, get_env_int
 from os import environ as env
+from Wywy_Website_Types import Datatype, DictDatabaseInfo, DictTableInfo, Entry, EntryData, DictSchema
+from config import CONFIG
+from typing import Callable, Any, List
 import psycopg
 from psycopg import sql
 
 VERBOSITY_LEVEL = get_env_int("SCHEMA_CHECK_VERBOSITY", 0)
 
-DATATYPE_CHECK: dict = {
+DATATYPE_CHECK: dict[Datatype, Callable[[Any], bool]] = {
     "int": lambda x: isinstance(x, int),
     "integer": lambda x: isinstance(x, int),
     "float": lambda x: isinstance(x, (int, float)),
@@ -43,7 +45,7 @@ DATATYPE_CHECK: dict = {
     "enum": lambda x: x is not None,
 }
 
-DEFAULT_VALUES = {
+DEFAULT_VALUES: dict[Datatype, Any] = {
     "int": 0,
     "integer": 0,
     "float": 0.0,
@@ -58,7 +60,7 @@ DEFAULT_VALUES = {
     "timestamp": "'0001-01-01T01:00:00'"
 }
 
-REQUIRES_QUOTATION = {
+REQUIRES_QUOTATION: dict[Datatype, bool] = {
     "int": False,
     "integer": False,
     "float": False,
@@ -73,12 +75,8 @@ REQUIRES_QUOTATION = {
     "timestamp": True
 }
 
-# peak at config
-with open("config.yml", "r") as file:
-    config = yaml.safe_load(file)
-
-# convert all the table schemas into dictionaries with snake_case keys
-databases: dict = {
+# convert all the table schemas into dictionaries with snake_case
+databases: dict[str, DictDatabaseInfo] = {
     to_lower_snake_case(db["dbname"]): {
         to_lower_snake_case(table["tableName"]): {
             **table,
@@ -87,22 +85,24 @@ databases: dict = {
                 for column_schema in table["schema"]
             },
 
-            "descriptors": {
+            "descriptors": 
+                {
                 to_lower_snake_case(descriptor_schema["name"]): {
+                    "name": to_lower_snake_case(descriptor_schema["name"]),
                     "schema": {
                         to_lower_snake_case(column_schema["name"]): column_schema
                         for column_schema in descriptor_schema["schema"]
                     }
                 }
                 for descriptor_schema in table["descriptors"]
-            } if "descriptors" in table else None,
+            } if "descriptors" in table else {},
         }
         for table in db["tables"]
     }
-    for db in config["data"]
+    for db in CONFIG["data"]
 }
 
-def get_all_tags(database_name: str, parent_table_name: str) -> dict:
+def get_all_tags(database_name: str, parent_table_name: str) -> list[int]:
     """Get all the related tags. Expects the target table to have tagged enabled.
 
     Args:
@@ -110,7 +110,7 @@ def get_all_tags(database_name: str, parent_table_name: str) -> dict:
         parent_table_name (str): The name of the parent table.
 
     Returns:
-        dict: A dictionary with the key as the alias and the value as an array with the first index as the tag_id.
+        dict: The tag IDs of the target table.
     """
     with psycopg.connect(
         dbname=database_name,
@@ -123,7 +123,7 @@ def get_all_tags(database_name: str, parent_table_name: str) -> dict:
             cur.execute(sql.SQL("SELECT (id) FROM {table_name};").format(table_name=sql.Identifier(f"{parent_table_name}_tag_names")))
             return [row[0] for row in cur.fetchall()]
 
-def check_entry(entry: dict, database_name: str, table_info: dict) -> bool:
+def check_entry(entry: Entry, database_name: str, table_info: DictTableInfo) -> bool:
     """Checks the given entry against the given table schema.
 
     Args:
@@ -145,12 +145,12 @@ def check_entry(entry: dict, database_name: str, table_info: dict) -> bool:
         # ensure that there is a primary tag
         if "primary_tag" not in entry["data"]:
             if VERBOSITY_LEVEL > 0:
-                print(f"Tagging is enabled on table {table_info.name}. You must provide a primary tag.")
+                print(f"Tagging is enabled on table {table_info["tableName"]}. You must provide a primary tag.")
         
         # ensure that secondary tags are declared
         if "tags" not in entry:
             if VERBOSITY_LEVEL > 0:
-                print(f"Tagging is enabled on table {table_info.name}. You must give additional secondary tags or declare that there are none by passing in an empty array.")
+                print(f"Tagging is enabled on table {table_info["tableName"]}. You must give additional secondary tags or declare that there are none by passing in an empty array.")
             return False
         
         # validate typing of supplied information
@@ -168,12 +168,12 @@ def check_entry(entry: dict, database_name: str, table_info: dict) -> bool:
     else:
         if "primary_tag" in entry["data"]:
             if VERBOSITY_LEVEL > 0:
-                print(f"Tagging is disabled on table {table_info.name}. You cannot supply a primary tag.")
+                print(f"Tagging is disabled on table {table_info["tableName"]}. You cannot supply a primary tag.")
             return False
         
         if "tags" in entry:
             if VERBOSITY_LEVEL > 0:
-                print(f"Tagging is disabled on table {table_info.name}. You cannot supply secondary tags.")
+                print(f"Tagging is disabled on table {table_info["tableName"]}. You cannot supply secondary tags.")
             return False
 
     # check descriptors
@@ -182,6 +182,11 @@ def check_entry(entry: dict, database_name: str, table_info: dict) -> bool:
         return False
     
     if "descriptors" in entry:
+        if "descriptors" not in table_info:
+            if VERBOSITY_LEVEL > 0:
+                print(f"This table has no descriptors.")
+            return False
+        
         # check each descriptor individually
         # iterate through each descriptor category
         for descriptor_name in entry["descriptors"]:
@@ -203,14 +208,14 @@ def check_entry(entry: dict, database_name: str, table_info: dict) -> bool:
                         print(f"The format of a {descriptor_name} descriptor is invalid.")
                     return False
                 
-                if not check_item(descriptor_entry, table_info["descriptors"][descriptor_name]["schema"]):
+                if not check_item(descriptor_entry, table_info["descriptors"][descriptor_name]["schema"]): # type: ignore
                     if VERBOSITY_LEVEL > 0:
                         print(f"A {descriptor_name} descriptor does not conform to the descriptor schema.")
                     return False
     
     return True
 
-def check_item(data: dict, schema: dict, require_inclusion: bool = True) -> bool:
+def check_item(data: EntryData, schema: DictSchema, require_inclusion: bool = True) -> bool:
     """Checks the given data against the given schema.
 
     Args:
@@ -289,7 +294,7 @@ def check_tags(tags: List[str], database_name: str, table_name: str) -> bool:
     tags_schema = set(get_all_tags(database_name, table_name))
     
     for tag_id in tags:
-        if not (isinstance(tag_id, str) and tag_id.isdigit()) and not isinstance(tag_id, int):
+        if not tag_id.isdigit():
             if VERBOSITY_LEVEL > 0:
                 print(f"Tag \"{tag_id}\" is invalid. Tag IDs must be provided rather than tag names.")
             return False

@@ -14,11 +14,6 @@ from pathlib import Path
 import os
 
 from os import environ
-import yaml
-
-# peak at config
-with open("config.yml", "r") as file:
-    config = yaml.safe_load(file)
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
