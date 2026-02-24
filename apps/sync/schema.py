@@ -43,6 +43,7 @@ DATATYPE_CHECK: dict[Datatype, Callable[[Any], bool]] = {
 
     # @TODO stricter enum checking
     "enum": lambda x: x is not None,
+    "geodetic point": lambda x: isinstance(x, str) and re.fullmatch(r"^POINT(?:\s*(?:ZM\s*\(\s*[-+]?\d*\.?\d+(?:[eE][-+]?\d+)?\s+[-+]?\d*\.?\d+(?:[eE][-+]?\d+)?\s+[-+]?\d*\.?\d+(?:[eE][-+]?\d+)?\s+[-+]?\d*\.?\d+(?:[eE][-+]?\d+)?\s*\)| Z\s*\(\s*[-+]?\d*\.?\d+(?:[eE][-+]?\d+)?\s+[-+]?\d*\.?\d+(?:[eE][-+]?\d+)?\s+[-+]?\d*\.?\d+(?:[eE][-+]?\d+)?\s*\)|M\s*\(\s*[-+]?\d*\.?\d+(?:[eE][-+]?\d+)?\s+[-+]?\d*\.?\d+(?:[eE][-+]?\d+)?\s+[-+]?\d*\.?\d+(?:[eE][-+]?\d+)?\s*\)|\(\s*[-+]?\d*\.?\d+(?:[eE][-+]?\d+)?\s+[-+]?\d*\.?\d+(?:[eE][-+]?\d+)?\s*\))|\s*(?:Z|M|ZM)?\s*EMPTY)$", x) is not None
 }
 
 DEFAULT_VALUES: dict[Datatype, Any] = {
@@ -57,7 +58,8 @@ DEFAULT_VALUES: dict[Datatype, Any] = {
     "boolean": False,
     "date": "'0001-01-01'",
     "time": "'01:00:00'",
-    "timestamp": "'0001-01-01T01:00:00'"
+    "timestamp": "'0001-01-01T01:00:00'",
+    "geodetic point": "POINT EMPTY"
 }
 
 REQUIRES_QUOTATION: dict[Datatype, bool] = {
@@ -229,10 +231,9 @@ def check_item(data: EntryData, schema: DictSchema, require_inclusion: bool = Tr
     # check every item
     for display_column_name in data:
         column_name = to_lower_snake_case(display_column_name)
-        is_comments_column: bool = len(column_name) > 9 and column_name[-9:] == "_comments"
         
         # special logic for comments
-        if is_comments_column:
+        if column_name.endswith("_comments"):
             # check if this column is allowed to have comments
             if not schema[column_name[:-9]].get("comments", False):
                 if VERBOSITY_LEVEL > 0:
@@ -242,6 +243,29 @@ def check_item(data: EntryData, schema: DictSchema, require_inclusion: bool = Tr
             if not DATATYPE_CHECK["str"](data[display_column_name]):
                 if VERBOSITY_LEVEL > 0:
                     print(f"Comments column {column_name} must contain a string comment.")
+                return False
+            continue
+        
+        # special logic for geodetic point accuracy columns
+        if column_name.endswith("_latlong_accuracy"):
+            if schema[column_name[:-len("_latlong_accuracy")]]["datatype"] != "geodetic point":
+                if VERBOSITY_LEVEL > 0:
+                    print(f"Column {column_name[:-len("_latlong_accuracy")]} is not a geodetic point and therefore cannot have an altitude accuracy.")
+                return False
+            
+            if not DATATYPE_CHECK["float"](data[display_column_name]):
+                if VERBOSITY_LEVEL > 0:
+                    print(f"Invalid datatype for column {display_column_name}. Expected a float.")
+                return False
+            continue
+            
+        if column_name.endswith("_altitude_accuracy"):
+            if schema[column_name[:-len("_altitude_accuracy")]]["datatype"] != "geodetic point":
+                if VERBOSITY_LEVEL > 0:
+                    print(f"Column {column_name[:-len("_altitude_accuracy")]} is not a geodetic point and therefore cannot have an altitude accuracy.")
+                if not DATATYPE_CHECK["float"](data[display_column_name]):
+                    if VERBOSITY_LEVEL > 0:
+                        print(f"Invalid datatype for column {display_column_name}. Expected a float.")
                 return False
             continue
         
