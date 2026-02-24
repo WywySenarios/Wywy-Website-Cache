@@ -2,7 +2,7 @@ import psycopg
 from psycopg import sql
 from typing import Any, List, Tuple
 from Wywy_Website_Types import EntryData, DictSchema
-from os import environ as env
+from constants import CONN_CONFIG
 
 def get_remote_id(database_name: str, table_name: str, id: int | str) -> int | str | None:
     """Attempts to fetch the remote id from the sync_status table.
@@ -15,13 +15,7 @@ def get_remote_id(database_name: str, table_name: str, id: int | str) -> int | s
     Returns:
         int | str | None: Returns the remote id on success and None if the parent entry has not been synced yet.
     """
-    with psycopg.connect(
-            dbname="info",
-            user=env.get("POSTGRES_USER", "postgres"),
-            password=env.get("POSTGRES_PASSWORD", "password"),
-            host="wywywebsite-cache_database",
-            port=env.get("POSTGRES_PORT", 5433)
-        ) as info_conn:
+    with psycopg.connect( **CONN_CONFIG, dbname="info") as info_conn:
         info_cur = info_conn.execute("SELECT remote_id FROM sync_status WHERE database_name = %s AND table_name = %s AND entry_id = %s;", (database_name, table_name, str(id)))
         output = next(info_cur)[0]
         info_cur.close()

@@ -1,7 +1,7 @@
 # datatype checking functions
 import re
 from utils import to_lower_snake_case, get_env_int
-from os import environ as env
+from constants import CONN_CONFIG
 from Wywy_Website_Types import Datatype, DictDatabaseInfo, DictTableInfo, Entry, EntryData, DictSchema
 from config import CONFIG
 from typing import Callable, Any, List
@@ -114,13 +114,7 @@ def get_all_tags(database_name: str, parent_table_name: str) -> list[int]:
     Returns:
         dict: The tag IDs of the target table.
     """
-    with psycopg.connect(
-        dbname=database_name,
-        user=env.get("POSTGRES_USER", "postgres"),
-        password=env.get("POSTGRES_PASSWORD", "password"),
-        host="wywywebsite-cache_database",
-        port=env.get("POSTGRES_PORT", 5433)
-        ) as conn:
+    with psycopg.connect(**CONN_CONFIG, dbname=database_name) as conn:
         with conn.cursor() as cur:
             cur.execute(sql.SQL("SELECT (id) FROM {table_name};").format(table_name=sql.Identifier(f"{parent_table_name}_tag_names")))
             return [row[0] for row in cur.fetchall()]

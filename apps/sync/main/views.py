@@ -4,7 +4,7 @@ from Wywy_Website_Types import DictTableInfo, Entry, EntryTableData
 import json
 import psycopg
 from psycopg import sql
-from os import environ as env
+from constants import CONN_CONFIG
 import datetime
 
 from utils import to_lower_snake_case, chunkify_url
@@ -36,13 +36,7 @@ def index(request: HttpRequest) -> HttpResponse:
         
         # fetch the requested data
         # @TODO more control over the exact parts of the query
-        with psycopg.connect(
-            dbname=database_name,
-            user=env.get("POSTGRES_USER", "postgres"),
-            password=env.get("POSTGRES_PASSWORD", "password"),
-            host="wywywebsite-cache_database",
-            port=env.get("POSTGRES_PORT", 5433),
-        ) as conn:
+        with psycopg.connect(**CONN_CONFIG, dbname=database_name) as conn:
             with conn.cursor() as cur:
                 # @TODO change to tag_aliases
                 # @TODO LIMIT
@@ -127,19 +121,7 @@ def index(request: HttpRequest) -> HttpResponse:
         
         # store data
         # @TODO https://en.wikipedia.org/wiki/Two-phase_commit_protocol
-        with psycopg.connect(
-            dbname=database_name,
-            user=env.get("POSTGRES_USER", "postgres"),
-            password=env.get("POSTGRES_PASSWORD", "password"),
-            host="wywywebsite-cache_database",
-            port=env.get("POSTGRES_PORT", 5433)
-        ) as data_conn, psycopg.connect(
-            dbname="info",
-            user=env.get("POSTGRES_USER", "postgres"),
-            password=env.get("POSTGRES_PASSWORD", "password"),
-            host="wywywebsite-cache_database",
-            port=env.get("POSTGRES_PORT", 5433)
-        ) as info_conn:
+        with psycopg.connect(**CONN_CONFIG, dbname=database_name) as data_conn, psycopg.connect(**CONN_CONFIG, dbname="info") as info_conn:
             try:
                 # @TODO atomicity
                 # main entry

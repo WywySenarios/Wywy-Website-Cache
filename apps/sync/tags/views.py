@@ -2,7 +2,7 @@ from django.http import HttpResponse, JsonResponse, HttpRequest, HttpResponseBad
 import psycopg
 from psycopg.rows import dict_row
 from psycopg import sql
-from os import environ as env
+from constants import CONN_CONFIG
 import json
 
 from schema import databases
@@ -32,11 +32,8 @@ def index(request: HttpRequest) -> HttpResponse:
     if (request.method == "GET"):
         # get results
         with psycopg.connect(
+            **CONN_CONFIG,
             dbname=database_name,
-            user=env.get("POSTGRES_USER", "postgres"),
-            password=env.get("POSTGRES_PASSWORD", "password"),
-            host="wywywebsite-cache_database",
-            port=env.get("POSTGRES_PORT", 5433),
             row_factory=dict_row  # pyright: ignore[reportArgumentType]
         ) as conn:
             with conn.cursor() as cur:
@@ -54,19 +51,7 @@ def index(request: HttpRequest) -> HttpResponse:
         if not data:
             return HttpResponseBadRequest("Empty or invalid body.")
 
-        with psycopg.connect(
-            dbname=database_name,
-            user=env.get("POSTGRES_USER", "postgres"),
-            password=env.get("POSTGRES_PASSWORD", "password"),
-            host="wywywebsite-cache_database",
-            port=env.get("POSTGRES_PORT", 5433)
-        ) as data_conn, psycopg.connect(
-            dbname="info",
-            user=env.get("POSTGRES_USER", "postgres"),
-            password=env.get("POSTGRES_PASSWORD", "password"),
-            host="wywywebsite-cache_database",
-            port=env.get("POSTGRES_PORT", 5433)
-        ) as info_conn:
+        with psycopg.connect(**CONN_CONFIG, dbname=database_name) as data_conn, psycopg.connect(**CONN_CONFIG, dbname="info") as info_conn:
             try:
                 match command:
                     case "tags":

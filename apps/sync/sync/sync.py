@@ -3,7 +3,8 @@ import threading
 import requests
 from requests import Response, HTTPError
 import datetime
-from os import environ as env
+from os import environ
+from constants import CONN_CONFIG
 import psycopg
 from psycopg.rows import dict_row
 from psycopg import sql
@@ -16,7 +17,7 @@ SYNC_VERBOSITY = get_env_int("SYNC_VERBOSITY", 0)
 
 def auto_sync(sync_event: threading.Event) -> None:
     # automatic sync interval in minutes
-    auto_sync_interval: float = float(env.get("AUTOSYNC_INTERVAL", 5))
+    auto_sync_interval: float = float(environ.get("AUTOSYNC_INTERVAL", 5))
     
     if not auto_sync_interval > 0:
         auto_sync_interval = 5
@@ -35,13 +36,7 @@ def auto_sync(sync_event: threading.Event) -> None:
         sync()
 
 def sync() -> None:
-    with psycopg.connect(
-            dbname="info",
-            user=env.get("POSTGRES_USER", "postgres"),
-            password=env.get("POSTGRES_PASSWORD", "password"),
-            host="wywywebsite-cache_database",
-            port=env.get("POSTGRES_PORT", 5433)
-        ) as info_conn:
+    with psycopg.connect(**CONN_CONFIG, dbname="info") as info_conn:
         # select all targets that need syncing (failed, not synced yet (NULL)) (do not select mismatch for now)
         targets_cur = info_conn.execute("SELECT id, table_name, parent_table_name, table_type, database_name, entry_id, status FROM sync_status WHERE status IN ('failed') OR status IS NULL;")
         
@@ -68,17 +63,14 @@ def sync() -> None:
             endpoint: str = ""
             match(table_type):
                 case "data":
-                    endpoint = f"{env["DATABASE_URL"]}/{database_name}/{parent_table_name}/{table_type}"
+                    endpoint = f"{environ["DATABASE_URL"]}/{database_name}/{parent_table_name}/{table_type}"
                 case _:
-                    endpoint = f"{env["DATABASE_URL"]}/{database_name}/{parent_table_name}/{table_type}/{table_name.removeprefix(f"{parent_table_name}_").removesuffix(f"_{table_type}")}"
+                    endpoint = f"{environ["DATABASE_URL"]}/{database_name}/{parent_table_name}/{table_type}/{table_name.removeprefix(f"{parent_table_name}_").removesuffix(f"_{table_type}")}"
             
             # get the information relating to the target
             target_record_conn = psycopg.connect(
+                **CONN_CONFIG,
                 dbname=database_name,
-                user=env.get("POSTGRES_USER", "postgres"),
-                password=env.get("POSTGRES_PASSWORD", "password"),
-                host="wywywebsite-cache_database",
-                port=env.get("POSTGRES_PORT", 5433),
                 row_factory=dict_row # type: ignore[arg-type]
             )
             target_record_cur = target_record_conn.execute(sql.SQL("""
@@ -130,7 +122,7 @@ def sync() -> None:
                     raise Warning()
                 with open("/run/secrets/admin", "r") as f:
                     response = requests.post(endpoint, timeout=5, headers={
-                            "Origin": env["CACHE_URL"]
+                            "Origin": environ["CACHE_URL"]
                         }, cookies={
                         "username": "admin",
                         "password": f.read()
@@ -187,19 +179,7 @@ def pull(database_name: str, parent_table_name: str, table_type: str = "data") -
     if table_type not in {"tags", "tag_names", "tag_aliases", "tag_groups"}:
         raise ValueError(f"Table type {table_type} not supported for pulling.")
     
-    with psycopg.connect(
-            dbname=database_name,
-            user=env.get("POSTGRES_USER", "postgres"),
-            password=env.get("POSTGRES_PASSWORD", "password"),
-            host="wywywebsite-cache_database",
-            port=env.get("POSTGRES_PORT", 5433)
-        ) as data_conn, psycopg.connect(
-            dbname="info",
-            user=env.get("POSTGRES_USER", "postgres"),
-            password=env.get("POSTGRES_PASSWORD", "password"),
-            host="wywywebsite-cache_database",
-            port=env.get("POSTGRES_PORT", 5433)
-        ) as info_conn:
+    with psycopg.connect(**CONN_CONFIG, dbname=database_name) as data_conn, psycopg.connect(**CONN_CONFIG, dbname="info") as info_conn:
             try:
                 # @TODO tables with many entries
                 
@@ -207,15 +187,15 @@ def pull(database_name: str, parent_table_name: str, table_type: str = "data") -
                 endpoint: str = ""
                 match(table_type):
                     case "data":
-                        endpoint = f"{env["DATABASE_URL"]}/{database_name}/{parent_table_name}"
+                        endpoint = f"{environ}/{database_name}/{parent_table_name}"
                     case _:
-                        endpoint = f"{env["DATABASE_URL"]}/{database_name}/{parent_table_name}/{table_type}"
+                        endpoint = f"{environ["DATABASE_URL"]}/{database_name}/{parent_table_name}/{table_type}"
                 
                 response: Response
                 # get all data
                 with open("/run/secrets/admin", "r") as f:
                     response = requests.get(endpoint, timeout=5, headers={
-                                "Origin": env["CACHE_URL"]
+                                "Origin": environ["CACHE_URL"]
                             }, cookies={
                             "username": "admin",
                             "password": f.read()
