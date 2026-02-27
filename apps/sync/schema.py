@@ -10,6 +10,20 @@ from psycopg import sql
 
 VERBOSITY_LEVEL = get_env_int("SCHEMA_CHECK_VERBOSITY", 0)
 
+def is_geodetic_point(value: Any) -> bool:
+    if not isinstance(value, str): return False
+    matches = re.fullmatch(r"POINT(?: Z)? \((-?\d+(?:\.\d+)?) (-?\d+(?:\.\d+)?)(?: (-?\d+(?:\.\d+)?))?\)", value)
+    if matches is None: return False
+    
+    # check longitude (X) and latitude (Y)
+    if matches.group(1) is None or not (-180 < float(matches.group(1)) < 180): return False
+    if matches.group(2) is None or not (-90 < float(matches.group(2)) < 90): return False
+    
+    # very lenient bounds for altitude
+    if matches.group(3) is not None and not (-1000 < float(matches.group(3)) < 9000): return False
+    
+    return True
+
 DATATYPE_CHECK: dict[Datatype, Callable[[Any], bool]] = {
     "int": lambda x: isinstance(x, int),
     "integer": lambda x: isinstance(x, int),
@@ -43,7 +57,7 @@ DATATYPE_CHECK: dict[Datatype, Callable[[Any], bool]] = {
 
     # @TODO stricter enum checking
     "enum": lambda x: x is not None,
-    "geodetic point": lambda x: isinstance(x, str) and re.fullmatch(r"^POINT(?:\s*(?:ZM\s*\(\s*[-+]?\d*\.?\d+(?:[eE][-+]?\d+)?\s+[-+]?\d*\.?\d+(?:[eE][-+]?\d+)?\s+[-+]?\d*\.?\d+(?:[eE][-+]?\d+)?\s+[-+]?\d*\.?\d+(?:[eE][-+]?\d+)?\s*\)| Z\s*\(\s*[-+]?\d*\.?\d+(?:[eE][-+]?\d+)?\s+[-+]?\d*\.?\d+(?:[eE][-+]?\d+)?\s+[-+]?\d*\.?\d+(?:[eE][-+]?\d+)?\s*\)|M\s*\(\s*[-+]?\d*\.?\d+(?:[eE][-+]?\d+)?\s+[-+]?\d*\.?\d+(?:[eE][-+]?\d+)?\s+[-+]?\d*\.?\d+(?:[eE][-+]?\d+)?\s*\)|\(\s*[-+]?\d*\.?\d+(?:[eE][-+]?\d+)?\s+[-+]?\d*\.?\d+(?:[eE][-+]?\d+)?\s*\))|\s*(?:Z|M|ZM)?\s*EMPTY)$", x) is not None
+    "geodetic point": is_geodetic_point
 }
 
 DEFAULT_VALUES: dict[Datatype, Any] = {
