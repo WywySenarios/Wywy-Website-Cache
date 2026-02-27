@@ -4,7 +4,10 @@ from typing import Any, List, Tuple
 from Wywy_Website_Types import EntryData, DictSchema
 from constants import CONN_CONFIG
 
-def get_remote_id(database_name: str, table_name: str, id: int | str) -> int | str | None:
+
+def get_remote_id(
+    database_name: str, table_name: str, id: int | str
+) -> int | str | None:
     """Attempts to fetch the remote id from the sync_status table.
 
     Args:
@@ -15,13 +18,23 @@ def get_remote_id(database_name: str, table_name: str, id: int | str) -> int | s
     Returns:
         int | str | None: Returns the remote id on success and None if the parent entry has not been synced yet.
     """
-    with psycopg.connect( **CONN_CONFIG, dbname="info") as info_conn:
-        info_cur = info_conn.execute("SELECT remote_id FROM sync_status WHERE database_name = %s AND table_name = %s AND entry_id = %s;", (database_name, table_name, str(id)))
+    with psycopg.connect(**CONN_CONFIG, dbname="info") as info_conn:
+        info_cur = info_conn.execute(
+            "SELECT remote_id FROM sync_status WHERE database_name = %s AND table_name = %s AND entry_id = %s;",
+            (database_name, table_name, str(id)),
+        )
         output = next(info_cur)[0]
         info_cur.close()
         return output
 
-def update_foreign_key(entry: EntryData, database_name: str, table_name: str, target: str, target_type: type | None = None) -> None:
+
+def update_foreign_key(
+    entry: EntryData,
+    database_name: str,
+    table_name: str,
+    target: str,
+    target_type: type | None = None,
+) -> None:
     """Updates one foreign key of the given entry.
 
     Args:
@@ -38,21 +51,24 @@ def update_foreign_key(entry: EntryData, database_name: str, table_name: str, ta
     """
     if target not in entry:
         return
-    
+
     remote_id = get_remote_id(database_name, table_name, entry[target])
     if remote_id is None:
         raise RuntimeError("Remote ID not found.")
-    
+
     if target_type is not None:
         try:
             remote_id = target_type(remote_id)
         except (ValueError, TypeError):
             print(f"Cannot coerce `{remote_id}` to `{target_type.__name__}`")
             raise
-    
+
     entry[target] = remote_id
 
-def decompose_entry(item: EntryData, schema: DictSchema, tagging: bool = False) -> Tuple[List[str], List[Any]]:
+
+def decompose_entry(
+    item: EntryData, schema: DictSchema, tagging: bool = False
+) -> Tuple[List[str], List[Any]]:
     """Decomposes an entry into columns and values based on the given schema.
 
     Args:
@@ -60,7 +76,7 @@ def decompose_entry(item: EntryData, schema: DictSchema, tagging: bool = False) 
         schema (dict): The schema that the entry should conform to.
         primary_column_name (str): The name of the primary column.
         tagging (bool, optional): Whether or not tagging is enabled. Defaults to False.
-        
+
     Raises:
         ValueError: When there are missing columns. Ignores erroneous columns.
 
@@ -69,24 +85,35 @@ def decompose_entry(item: EntryData, schema: DictSchema, tagging: bool = False) 
     """
     columns: List[str] = []
     values: list[Any] = []
-    
+
     # check for primary tag column
     if tagging:
         columns.append("primary_tag")
         values.append(item["primary_tag"])
-    
+
     # populate column names & insert values
     for column_name in schema:
         columns.append(column_name)
-        
+
         if column_name in item:
             values.append(item[column_name])
         else:
             raise ValueError(f"Column name {column_name} is not within the schema.")
-    
+
     return (columns, values)
 
-def store_entry(data_conn: psycopg.Connection, info_conn: psycopg.Connection, columns: List[str], values: list[Any], target_database_name: str, target_table_name: str, target_parent_table_name: str, target_table_type: str, id_column_name: str = "id") -> int | str | None:
+
+def store_entry(
+    data_conn: psycopg.Connection,
+    info_conn: psycopg.Connection,
+    columns: List[str],
+    values: list[Any],
+    target_database_name: str,
+    target_table_name: str,
+    target_parent_table_name: str,
+    target_table_type: str,
+    id_column_name: str = "id",
+) -> int | str | None:
     """Stores an entry, assuming that item is valid, does not contain extra columns, and is not missing any columns.
 
     Args:
@@ -101,14 +128,33 @@ def store_entry(data_conn: psycopg.Connection, info_conn: psycopg.Connection, co
         id_column_name (str, optional): The name of the ID column (PRIMARY KEY).
     Raises:
         Psycopg.Error: When storing the entry fails. store_entry should be encapsulated in a try-catch to rollback when necessary.
-        
+
     Returns:
         int | str | None: The ID (PRIMARY KEY) that was pushed to the data table
     """
     id: int | str | None = None
 
-    data_cur = data_conn.execute(sql.SQL("INSERT INTO {table} ({fields}) VALUES({placeholders}) RETURNING {id_column};").format(table=sql.Identifier(target_table_name), fields=sql.SQL(', ').join(map(sql.Identifier, columns)),placeholders=sql.SQL(', ').join(sql.Placeholder() * len(values)), id_column=sql.Identifier(id_column_name)), values)
+    data_cur = data_conn.execute(
+        sql.SQL(
+            "INSERT INTO {table} ({fields}) VALUES({placeholders}) RETURNING {id_column};"
+        ).format(
+            table=sql.Identifier(target_table_name),
+            fields=sql.SQL(", ").join(map(sql.Identifier, columns)),
+            placeholders=sql.SQL(", ").join(sql.Placeholder() * len(values)),
+            id_column=sql.Identifier(id_column_name),
+        ),
+        values,
+    )
     id = next(data_cur)[0]
-    info_conn.execute("INSERT INTO sync_status (table_name, parent_table_name, table_type, database_name, entry_id, remote_id, sync_timestamp, status) VALUES (%s, %s, %s, %s, %s, NULL, NULL, NULL);", (target_table_name, target_parent_table_name, target_table_type, target_database_name, id)).close()
+    info_conn.execute(
+        "INSERT INTO sync_status (table_name, parent_table_name, table_type, database_name, entry_id, remote_id, sync_timestamp, status) VALUES (%s, %s, %s, %s, %s, NULL, NULL, NULL);",
+        (
+            target_table_name,
+            target_parent_table_name,
+            target_table_type,
+            target_database_name,
+            id,
+        ),
+    ).close()
     data_cur.close()
     return id

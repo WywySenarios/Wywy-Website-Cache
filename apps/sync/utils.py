@@ -1,5 +1,3 @@
-
-
 import re
 from typing import List
 from os import environ as env
@@ -11,13 +9,14 @@ def to_lower_snake_case(target: str) -> str:
     @return Returns lower_snake_case string. e.g. "hi I am Wywy" -> "hi_i_am_wywy"
     """
     stringFrags: List[str] = re.split(r"[\.\ \-]", target)
-    
+
     output: str = ""
-    
+
     for i in stringFrags:
         output += i.lower() + "_"
-    
-    return output[:-1] # remove trailing underscore with "[:-1]"
+
+    return output[:-1]  # remove trailing underscore with "[:-1]"
+
 
 def to_snake_case(target: str) -> str:
     """Attempts to convert from regular words/sentences to snake_case. This will not affect strings already in underscore notation. (Does not work with camelCase)
@@ -25,13 +24,14 @@ def to_snake_case(target: str) -> str:
     @return Returns underscore notation string. e.g. "hi I am Wywy" -> "hi_I_am_Wywy"
     """
     stringFrags: List[str] = re.split(r"[\.\ \-]", target)
-    
+
     output: str = ""
-    
+
     for i in stringFrags:
         output += i + "_"
-    
-    return output[:-1] # remove trailing underscore with "[:-1]"
+
+    return output[:-1]  # remove trailing underscore with "[:-1]"
+
 
 def remove_quotation(target: str) -> str:
     """Returns a copy of the target string that is not singly quoted.
@@ -43,6 +43,7 @@ def remove_quotation(target: str) -> str:
         str: An unquoted copy of the target string.
     """
     return target[:-1][1:]
+
 
 def chunkify_url(url: str, max_chunks: int = -1) -> List[str]:
     """Breaks a URL into chunks.
@@ -63,10 +64,11 @@ def chunkify_url(url: str, max_chunks: int = -1) -> List[str]:
     elif url.startswith("/"):
         chunky_url = url[1:]
 
-    if (max_chunks < 0):
+    if max_chunks < 0:
         return chunky_url.split("/")
     else:
         return chunky_url.split("/")[:max_chunks]
+
 
 def get_env_int(env_name: str, default_value: int = 0) -> int:
     """Attempts to get the integer value of an environment variable. Cannot parse negative numbers.

@@ -12,11 +12,11 @@ from utils import to_lower_snake_case
 
 cache_values: dict[str, dict[str, dict[str, Any] | None]] = {
     to_lower_snake_case(db["dbname"]): {
-        to_lower_snake_case(table["tableName"]): None
-        for table in db["tables"]
+        to_lower_snake_case(table["tableName"]): None for table in db["tables"]
     }
     for db in CONFIG["data"]
 }
+
 
 @ensure_csrf_cookie
 def index(request: HttpRequest) -> HttpResponse:
@@ -31,19 +31,18 @@ def index(request: HttpRequest) -> HttpResponse:
             return HttpResponseBadRequest()
         table: DictTableInfo = databases[database_name][table_name]
 
-        
         # load in body
         data = json.loads(request.body)
-        
+
         if data == None:
             return HttpResponseBadRequest()
-        
+
         if not check_item(data, table["schema"], require_inclusion=False):
             return HttpResponseBadRequest()
-        
+
         # store the input into the cache
         cache_values[database_name][table_name] = data
-        
+
         return HttpResponse()
     elif request.method == "GET":
         # look for the target table
@@ -54,7 +53,7 @@ def index(request: HttpRequest) -> HttpResponse:
         table_name = to_lower_snake_case(url_chunks[3])
         if not database_name in databases or not table_name in databases[database_name]:
             return HttpResponseBadRequest()
-        
+
         # return the cache or an empty dictionary
         if cache_values[database_name][table_name] is None:
             return JsonResponse({})
@@ -62,10 +61,13 @@ def index(request: HttpRequest) -> HttpResponse:
             return JsonResponse(cache_values[database_name][table_name])
     return HttpResponseBadRequest()
 
+
 @ensure_csrf_cookie
 def csrf(request: HttpRequest):
     csrf_token = get_token(request)  # Generates/gets the CSRF token
-    return JsonResponse({
-        "csrfToken": csrf_token,      # Include the token in JSON
-        "detail": "CSRF cookie set"
-    })
+    return JsonResponse(
+        {
+            "csrfToken": csrf_token,  # Include the token in JSON
+            "detail": "CSRF cookie set",
+        }
+    )
