@@ -212,7 +212,8 @@ def index(request: HttpRequest) -> HttpResponse:
                                     table["descriptors"][descriptor_name]["schema"],
                                 ),
                             )
-            except (psycopg.Error, ValueError):
+            except (psycopg.Error, ValueError) as e:
+                print(e)
                 data_conn.rollback()
                 info_conn.rollback()
                 return HttpResponseServerError(
