@@ -97,6 +97,7 @@ def decompose_entry(
     if tagging:
         columns.append("primary_tag")
         values.append(item["primary_tag"])
+        values_shapes.append(sql.Placeholder())
 
     # populate column names & insert values
     for column_name in schema:
@@ -167,7 +168,7 @@ def store_entry(
             values=values_shape,
             id_column=sql.Identifier(id_column_name),
         ),
-        (values,),
+        (*values,),
     )
     id = next(data_cur)[0]
     info_conn.execute(
