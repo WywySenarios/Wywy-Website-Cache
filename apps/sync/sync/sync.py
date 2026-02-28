@@ -97,13 +97,13 @@ def sync() -> None:
             # @TODO sql-receptionist should reject problematic id keys
             payload = dict(next(target_record_cur))
             for k, v in payload.items():
-                if v is None:
-                    print(
-                        f"Sync failed. Anomalous item: ({database_name}/{table_name} ({parent_table_name})): {payload}"
-                    )
-                    status = "anomalous"
-                    break
-                elif (
+                # if v is None:
+                #     print(
+                #         f"Sync failed. Anomalous item: ({database_name}/{table_name} ({parent_table_name})): {payload}"
+                #     )
+                #     status = "anomalous"
+                #     break
+                if (
                     isinstance(v, datetime.datetime)
                     or isinstance(v, datetime.date)
                     or isinstance(v, datetime.time)
@@ -160,7 +160,7 @@ def sync() -> None:
             remote_id: int | str | None = None
 
             try:
-                if status == "failed" or status == "anomalous":
+                if status == "failed":  # or status == "anomalous":
                     raise Warning()
                 with open("/run/secrets/admin", "r") as f:
                     response = requests.post(
