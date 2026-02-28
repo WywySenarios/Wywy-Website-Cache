@@ -325,12 +325,12 @@ def pull(database_name: str, parent_table_name: str, table_type: str = "data") -
                     store_entry(
                         data_conn,
                         info_conn,
-                        data["columns"],
-                        row,
                         database_name,
                         table_name,
                         parent_table_name,
                         table_type,
+                        data["columns"],
+                        row,
                         id_column_name=id_column_name,
                     )
 

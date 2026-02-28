@@ -1,6 +1,6 @@
 import psycopg
-from psycopg import sql
-from typing import Any, List, Tuple
+from psycopg import sql, Connection
+from typing import Any, List, TypedDict
 from Wywy_Website_Types import EntryData, DictSchema
 from constants import CONN_CONFIG
 
@@ -66,9 +66,15 @@ def update_foreign_key(
     entry[target] = remote_id
 
 
+class DecomposedEntry(TypedDict):
+    columns: List[str]
+    values_shapes: List[sql.Composable]
+    values: List[Any]
+
+
 def decompose_entry(
     item: EntryData, schema: DictSchema, tagging: bool = False
-) -> Tuple[List[str], List[Any]]:
+) -> DecomposedEntry:
     """Decomposes an entry into columns and values based on the given schema.
 
     Args:
@@ -81,10 +87,11 @@ def decompose_entry(
         ValueError: When there are missing columns. Ignores erroneous columns.
 
     Returns:
-        Tuple[List[str], list]: The columns and values of the entry.
+        Tuple[List[str], List[sql.Composeable], List[Any]]: The column names, the value_shapes, and the values.
     """
     columns: List[str] = []
-    values: list[Any] = []
+    values_shapes: List[sql.Composable] = []
+    values: List[Any] = []
 
     # check for primary tag column
     if tagging:
@@ -97,22 +104,30 @@ def decompose_entry(
 
         if column_name in item:
             values.append(item[column_name])
+
+            # a special command needs to be added to INSERT a geodetic point
+            match (schema[column_name]["datatype"]):
+                case "geodetic point":
+                    values_shapes.append(sql.SQL("ST_GeographyFromText(%s)"))
+                case _:
+                    values_shapes.append(sql.Placeholder())
         else:
             raise ValueError(f"Column name {column_name} is not within the schema.")
 
-    return (columns, values)
+    return {"columns": columns, "values_shapes": values_shapes, "values": values}
 
 
 def store_entry(
-    data_conn: psycopg.Connection,
-    info_conn: psycopg.Connection,
-    columns: List[str],
-    values: list[Any],
+    data_conn: Connection,
+    info_conn: Connection,
     target_database_name: str,
     target_table_name: str,
     target_parent_table_name: str,
     target_table_type: str,
+    columns: List[str],
+    values: List[Any],
     id_column_name: str = "id",
+    values_shapes: List[sql.Composable] | None = None,
 ) -> int | str | None:
     """Stores an entry, assuming that item is valid, does not contain extra columns, and is not missing any columns.
 
@@ -120,30 +135,39 @@ def store_entry(
         data_conn (psycopg.Connection): Connection to the target database.
         info_conn (psycopg.Connection): Connection to the info database.
         columns (List[str]): The column names to enter.
-        values (list): The values to insert, whose index directly relates to the columns.
+        values (list): An ordered list of the values to insert.
         target_database_name (str): The name of the target database.
         target_table_name (str): The name of the target table.
         target_parent_table_name (str): The name of the target table's parent.
         target_table_type (str): The target table's type.
-        id_column_name (str, optional): The name of the ID column (PRIMARY KEY).
+        id_column_name (str, optional): The name of the ID column (PRIMARY KEY). Defaults to "id".
+        values_shapes (List[sql.Composable] | None, optional): The structure of the VALUES part of the INSERT INTO query. Defaults to None.
     Raises:
         Psycopg.Error: When storing the entry fails. store_entry should be encapsulated in a try-catch to rollback when necessary.
 
     Returns:
         int | str | None: The ID (PRIMARY KEY) that was pushed to the data table
     """
+
     id: int | str | None = None
+
+    values_shape: sql.Composable
+
+    if values_shapes is None:
+        values_shape = sql.SQL(", ").join(sql.Placeholder() * len(values))
+    else:
+        values_shape = sql.SQL(", ").join(values_shapes)
 
     data_cur = data_conn.execute(
         sql.SQL(
-            "INSERT INTO {table} ({fields}) VALUES({placeholders}) RETURNING {id_column};"
+            "INSERT INTO {table} ({fields}) VALUES({values}) RETURNING {id_column};"
         ).format(
             table=sql.Identifier(target_table_name),
             fields=sql.SQL(", ").join(map(sql.Identifier, columns)),
-            placeholders=sql.SQL(", ").join(sql.Placeholder() * len(values)),
+            values=values_shape,
             id_column=sql.Identifier(id_column_name),
         ),
-        values,
+        (values,),
     )
     id = next(data_cur)[0]
     info_conn.execute(

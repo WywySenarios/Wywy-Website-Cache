@@ -104,12 +104,12 @@ def index(request: HttpRequest) -> HttpResponse:
                         store_entry(
                             data_conn,
                             info_conn,
-                            list(data.keys()),
-                            list(data.values()),
                             database_name,
                             f"{table_name}_tags",
                             table_name,
                             "tags",
+                            list(data.keys()),
+                            list(data.values()),
                         )
                     case "tag_names":
                         # validate input
@@ -132,24 +132,24 @@ def index(request: HttpRequest) -> HttpResponse:
                         next_id = store_entry(
                             data_conn,
                             info_conn,
-                            list(data.keys()),
-                            list(data.values()),
                             database_name,
                             f"{table_name}_tag_names",
                             table_name,
                             "tag_names",
+                            list(data.keys()),
+                            list(data.values()),
                         )
 
                         # automatically add the related alias
                         store_entry(
                             data_conn,
                             info_conn,
-                            ["alias", "tag_id"],
-                            [data["tag_name"], next_id],
                             database_name,
                             f"{table_name}_tag_aliases",
                             table_name,
                             "tag_aliases",
+                            ["alias", "tag_id"],
+                            [data["tag_name"], next_id],
                             id_column_name="alias",
                         )
                     case "tag_aliases":
@@ -179,12 +179,12 @@ def index(request: HttpRequest) -> HttpResponse:
                         store_entry(
                             data_conn,
                             info_conn,
-                            list(data.keys()),
-                            list(data.values()),
                             database_name,
                             f"{table_name}_tag_aliases",
                             table_name,
                             "tag_aliases",
+                            list(data.keys()),
+                            list(data.values()),
                             id_column_name="alias",
                         )
                     case "tag_groups":
@@ -216,12 +216,12 @@ def index(request: HttpRequest) -> HttpResponse:
                         store_entry(
                             data_conn,
                             info_conn,
-                            list(data.keys()),
-                            list(data.values()),
                             database_name,
                             f"{table_name}_tag_groups",
                             table_name,
                             "tag_groups",
+                            list(data.keys()),
+                            list(data.values()),
                         )
                     case _:
                         return HttpResponseBadRequest(

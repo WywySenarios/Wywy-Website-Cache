@@ -168,15 +168,15 @@ def index(request: HttpRequest) -> HttpResponse:
                 entry_id = store_entry(
                     data_conn,
                     info_conn,
-                    *decompose_entry(
-                        f_data["data"],
-                        table["schema"],
-                        tagging=("tagging" in table and table["tagging"] == True),
-                    ),
                     database_name,
                     table_name,
                     table_name,
                     "data",
+                    **decompose_entry(
+                        f_data["data"],
+                        table["schema"],
+                        tagging=("tagging" in table and table["tagging"] == True),
+                    ),
                 )
 
                 # tags
@@ -185,12 +185,12 @@ def index(request: HttpRequest) -> HttpResponse:
                         store_entry(
                             data_conn,
                             info_conn,
-                            ["entry_id", "tag_id"],
-                            [entry_id, tag_id],
                             database_name,
                             f"{table_name}_tags",
                             table_name,
                             "tags",
+                            ["entry_id", "tag_id"],
+                            [entry_id, tag_id],
                         )
 
                 # descriptors
@@ -203,14 +203,14 @@ def index(request: HttpRequest) -> HttpResponse:
                             store_entry(
                                 data_conn,
                                 info_conn,
-                                *decompose_entry(
-                                    descriptor_info,
-                                    table["descriptors"][descriptor_name]["schema"],
-                                ),
                                 database_name,
                                 f"{table_name}_{descriptor_name}_descriptors",
                                 table_name,
                                 "descriptors",
+                                **decompose_entry(
+                                    descriptor_info,
+                                    table["descriptors"][descriptor_name]["schema"],
+                                ),
                             )
             except (psycopg.Error, ValueError):
                 data_conn.rollback()
