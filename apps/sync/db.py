@@ -66,6 +66,43 @@ def update_foreign_key(
     entry[target] = remote_id
 
 
+def construct_select_all_query(
+    table_name: str,
+    schema: DictSchema,
+    conditions: sql.Composable | sql.Composed = sql.SQL(""),
+) -> sql.Composed:
+    """Generates a SELECT query that contains all of the columns from the schema.
+
+    Args:
+        table_name (str): _description_
+        schema (DictSchema): _description_
+        conditions (sql.Composable | sql.Composed, optional): _description_. Defaults to an empty condition.
+
+    Returns:
+        sql.Composed: _description_
+    """
+    values: List[sql.Composable] = []
+
+    for column_name in schema:
+        match (schema[column_name]["datatype"]):
+            case "geodetic point":
+                values.append(
+                    sql.SQL("ST_AsText({column_name}) AS {column_name}").format(
+                        column_name=sql.Identifier(column_name)
+                    )
+                )
+                values.append(sql.Identifier(f"{column_name}_latlong_accuracy"))
+                values.append(sql.Identifier(f"{column_name}_altitude_accuracy"))
+            case _:
+                values.append(sql.Identifier(column_name))
+
+    return sql.SQL("SELECT {values} from {table_name} {conditions};").format(
+        values=sql.SQL(", ").join(values),
+        table_name=sql.Identifier(table_name),
+        conditions=conditions,
+    )
+
+
 class DecomposedEntry(TypedDict):
     columns: List[str]
     values_shapes: List[sql.Composable]

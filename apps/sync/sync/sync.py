@@ -11,7 +11,8 @@ from psycopg import sql
 from typing import Literal, Any, cast
 
 from utils import get_env_int
-from db import update_foreign_key, store_entry
+from schema import databases
+from db import update_foreign_key, store_entry, construct_select_all_query
 
 SYNC_VERBOSITY = get_env_int("SYNC_VERBOSITY", 0)
 
@@ -78,13 +79,12 @@ def sync() -> None:
                 row_factory=dict_row,  # type: ignore[arg-type]
             )
             target_record_cur = target_record_conn.execute(
-                sql.SQL(
-                    """
-                                    SELECT * FROM {table} WHERE {id_column_name}=%s;
-                                    """
-                ).format(
-                    table=sql.Identifier(table_name),
-                    id_column_name=sql.Identifier(id_column_name),
+                construct_select_all_query(
+                    table_name,
+                    databases[database_name][table_name]["schema"],
+                    sql.SQL("WHERE {id_column_name}=%s").format(
+                        id_column_name=sql.Identifier(id_column_name)
+                    ),
                 ),
                 (target_id,),
             )
