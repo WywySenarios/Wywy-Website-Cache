@@ -1,5 +1,6 @@
 # @TODO fix multithreading database transaction issues >:(
 import threading
+from django.http import HttpRequest, HttpResponse
 import requests
 from requests import Response, HTTPError
 import datetime
@@ -342,6 +343,11 @@ def pull(database_name: str, parent_table_name: str, table_type: str = "data") -
 
 def queue_sync() -> None:
     SYNC_EVENT.set()
+
+
+def request_sync(request: HttpRequest) -> HttpResponse:
+    queue_sync()
+    return HttpResponse("Queued sync.")
 
 
 SYNC_EVENT: threading.Event = threading.Event()

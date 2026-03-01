@@ -16,13 +16,15 @@ Including another URLconf
 """
 
 from django.contrib import admin
-from django.urls import include, path
+from django.urls import URLPattern, URLResolver, include, path
+from sync.sync import request_sync
 
-urlpatterns = [
+urlpatterns: list[URLPattern | URLResolver] = [
     path("admin/", admin.site.urls),
     path("main/", include("main.urls")),
     path("cache/", include("cache.urls")),
     path("tags", include("tags.urls")),
     path("refresh", include("refresh.urls")),
     path("auth", include("auth.urls")),
+    path("sync", request_sync),
 ]
