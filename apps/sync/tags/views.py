@@ -1,9 +1,14 @@
-from django.shortcuts import render
-from django.http import HttpResponse, JsonResponse, HttpRequest, HttpResponseBadRequest, HttpResponseServerError
+from django.http import (
+    HttpResponse,
+    JsonResponse,
+    HttpRequest,
+    HttpResponseBadRequest,
+    HttpResponseServerError,
+)
 import psycopg
 from psycopg.rows import dict_row
 from psycopg import sql
-from os import environ as env
+from constants import CONN_CONFIG
 import json
 
 from schema import databases
@@ -11,43 +16,53 @@ from utils import chunkify_url, to_lower_snake_case, remove_quotation
 from sync.sync import queue_sync
 from db import store_entry
 
+
 # Create your views here.
 def index(request: HttpRequest) -> HttpResponse:
     url_chunks = chunkify_url(request.path)
 
     if len(url_chunks) < 3:
-        return HttpResponseBadRequest("Bad URL. Expecting URL in the form tags/[databaseName]/[tableName]/...")
+        return HttpResponseBadRequest(
+            "Bad URL. Expecting URL in the form tags/[databaseName]/[tableName]/..."
+        )
 
     database_name = to_lower_snake_case(url_chunks[1])
     table_name = to_lower_snake_case(url_chunks[2])
 
     if database_name not in databases:
-        return HttpResponseBadRequest(f"Database \"{database_name}\" was not found.")
+        return HttpResponseBadRequest(f'Database "{database_name}" was not found.')
     if table_name not in databases[database_name]:
-        return HttpResponseBadRequest(f"Table \"{database_name}/{table_name}\" was not found.")
+        return HttpResponseBadRequest(
+            f'Table "{database_name}/{table_name}" was not found.'
+        )
 
-    if "tagging" not in databases[database_name][table_name] or not databases[database_name][table_name]["tagging"] == True:
-        return HttpResponseBadRequest(f"Tagging is not enabled on table \"{database_name}/{table_name}\"")
-    
+    if databases[database_name][table_name].get("tagging", False) is not True:
+        return HttpResponseBadRequest(
+            f'Tagging is not enabled on table "{database_name}/{table_name}"'
+        )
+
     # only accept GET requests
-    if (request.method == "GET"):
+    if request.method == "GET":
         # get results
         with psycopg.connect(
+            **CONN_CONFIG,
             dbname=database_name,
-            user=env.get("POSTGRES_USER", "postgres"),
-            password=env.get("POSTGRES_PASSWORD", "password"),
-            host="wywywebsite-cache_database",
-            port=env.get("POSTGRES_PORT", 5433),
-            row_factory=dict_row
+            row_factory=dict_row,  # pyright: ignore[reportArgumentType]
         ) as conn:
             with conn.cursor() as cur:
                 # @TODO change to tag_aliases
-                cur.execute(sql.SQL("SELECT * FROM {table_name};").format(table_name=sql.Identifier(f"{table_name}_tag_names")))
+                cur.execute(
+                    sql.SQL("SELECT * FROM {table_name};").format(
+                        table_name=sql.Identifier(f"{table_name}_tag_names")
+                    )
+                )
                 return JsonResponse({"tags": cur.fetchall()})
-    elif (request.method == "POST"):
+    elif request.method == "POST":
         if len(url_chunks) < 4:
-            return HttpResponseBadRequest("Invalid URL. Expecting tags/[databaseName]/[tableName]/[tag_names/tag_aliases].")
-        
+            return HttpResponseBadRequest(
+                "Invalid URL. Expecting tags/[databaseName]/[tableName]/[tag_names/tag_aliases]."
+            )
+
         command = url_chunks[3]
 
         # make sure the body has content
@@ -55,97 +70,171 @@ def index(request: HttpRequest) -> HttpResponse:
         if not data:
             return HttpResponseBadRequest("Empty or invalid body.")
 
-        with psycopg.connect(
-            dbname=database_name,
-            user=env.get("POSTGRES_USER", "postgres"),
-            password=env.get("POSTGRES_PASSWORD", "password"),
-            host="wywywebsite-cache_database",
-            port=env.get("POSTGRES_PORT", 5433)
-        ) as data_conn, psycopg.connect(
-            dbname="info",
-            user=env.get("POSTGRES_USER", "postgres"),
-            password=env.get("POSTGRES_PASSWORD", "password"),
-            host="wywywebsite-cache_database",
-            port=env.get("POSTGRES_PORT", 5433)
-        ) as info_conn:
+        with (
+            psycopg.connect(**CONN_CONFIG, dbname=database_name) as data_conn,
+            psycopg.connect(**CONN_CONFIG, dbname="info") as info_conn,
+        ):
             try:
                 match command:
                     case "tags":
                         # validate input
                         if "entry_id" not in data:
-                            return HttpResponseBadRequest("The entry ID was not provided.")
-                        if not isinstance(data["entry_id"], int) or data["entry_id"] <= 0:
-                            return HttpResponseBadRequest("The ID of the entry that is being tagged must be a postivie integer.")
+                            return HttpResponseBadRequest(
+                                "The entry ID was not provided."
+                            )
+                        if (
+                            not isinstance(data["entry_id"], int)
+                            or data["entry_id"] <= 0
+                        ):
+                            return HttpResponseBadRequest(
+                                "The ID of the entry that is being tagged must be a postivie integer."
+                            )
                         if "tag_id" not in data:
                             return HttpResponseBadRequest("Related ID not provided.")
                         if not isinstance(data["tag_id"], int) or data["tag_id"] <= 0:
-                            return HttpResponseBadRequest("The related tag ID must be a positive integer.")
+                            return HttpResponseBadRequest(
+                                "The related tag ID must be a positive integer."
+                            )
                         if len(list(data)) > 2:
-                            return HttpResponseBadRequest("Erroneous information was provided.")
+                            return HttpResponseBadRequest(
+                                "Erroneous information was provided."
+                            )
 
                         # store data
-                        store_entry(data_conn, info_conn, list(data.keys()), list(data.values()), database_name, f"{table_name}_tags", table_name, "tags")
+                        store_entry(
+                            data_conn,
+                            info_conn,
+                            database_name,
+                            f"{table_name}_tags",
+                            table_name,
+                            "tags",
+                            list(data.keys()),
+                            list(data.values()),
+                        )
                     case "tag_names":
                         # validate input
                         if "tag_name" not in data:
                             return HttpResponseBadRequest("New tag name not provided.")
                         if not isinstance(data["tag_name"], str):
-                            return HttpResponseBadRequest("The new tag name must be a string.")
+                            return HttpResponseBadRequest(
+                                "The new tag name must be a string."
+                            )
                         if len(list(data)) > 1:
-                            return HttpResponseBadRequest("Erroneous information was provided.")
-                        
+                            return HttpResponseBadRequest(
+                                "Erroneous information was provided."
+                            )
+
                         # unquote necessary fields
                         data["tag_name"] = remove_quotation(data["tag_name"])
 
                         # store data
                         # @TODO atomicity
-                        next_id = store_entry(data_conn, info_conn, list(data.keys()), list(data.values()), database_name, f"{table_name}_tag_names", table_name, "tag_names")
+                        next_id = store_entry(
+                            data_conn,
+                            info_conn,
+                            database_name,
+                            f"{table_name}_tag_names",
+                            table_name,
+                            "tag_names",
+                            list(data.keys()),
+                            list(data.values()),
+                        )
 
                         # automatically add the related alias
-                        store_entry(data_conn, info_conn, ["alias", "tag_id"], [data["tag_name"], next_id], database_name, f"{table_name}_tag_aliases", table_name, "tag_aliases", id_column_name="alias")
+                        store_entry(
+                            data_conn,
+                            info_conn,
+                            database_name,
+                            f"{table_name}_tag_aliases",
+                            table_name,
+                            "tag_aliases",
+                            ["alias", "tag_id"],
+                            [data["tag_name"], next_id],
+                            id_column_name="alias",
+                        )
                     case "tag_aliases":
                         # validate input
                         if "alias" not in data:
-                            return HttpResponseBadRequest("New alias name not provided.")
+                            return HttpResponseBadRequest(
+                                "New alias name not provided."
+                            )
                         if not isinstance(data["alias"], str):
-                            return HttpResponseBadRequest("The new alias name must be a string.")
+                            return HttpResponseBadRequest(
+                                "The new alias name must be a string."
+                            )
                         if "tag_id" not in data:
                             return HttpResponseBadRequest("Related ID not provided.")
                         if not isinstance(data["tag_id"], int) or data["tag_id"] <= 0:
-                            return HttpResponseBadRequest("The related tag ID must be a positive integer.")
+                            return HttpResponseBadRequest(
+                                "The related tag ID must be a positive integer."
+                            )
                         if len(list(data)) > 2:
-                            return HttpResponseBadRequest("Erroneous information was provided.")
-                        
+                            return HttpResponseBadRequest(
+                                "Erroneous information was provided."
+                            )
+
                         # unquote necessary fields
                         data["alias"] = remove_quotation(data["alias"])
-                        
-                        store_entry(data_conn, info_conn, list(data.keys()), list(data.values()), database_name, f"{table_name}_tag_aliases", table_name, "tag_aliases", id_column_name="alias")
+
+                        store_entry(
+                            data_conn,
+                            info_conn,
+                            database_name,
+                            f"{table_name}_tag_aliases",
+                            table_name,
+                            "tag_aliases",
+                            list(data.keys()),
+                            list(data.values()),
+                            id_column_name="alias",
+                        )
                     case "tag_groups":
                         # validate input
                         if "group_name" not in data:
-                            return HttpResponseBadRequest("Related group name not provided.")
+                            return HttpResponseBadRequest(
+                                "Related group name not provided."
+                            )
                         if not isinstance(data["alias"], str):
-                            return HttpResponseBadRequest("The related group name must be a string.")
+                            return HttpResponseBadRequest(
+                                "The related group name must be a string."
+                            )
                         if "tag_id" not in data:
-                            return HttpResponseBadRequest("The ID of the tag being grouped was not provided.")
+                            return HttpResponseBadRequest(
+                                "The ID of the tag being grouped was not provided."
+                            )
                         if not isinstance(data["tag_id"], int) or data["tag_id"] <= 0:
-                            return HttpResponseBadRequest("The ID of the tag being grouped must be a positive integer.")
+                            return HttpResponseBadRequest(
+                                "The ID of the tag being grouped must be a positive integer."
+                            )
                         if len(list(data)) > 2:
-                            return HttpResponseBadRequest("Erroneous information was provided.")
-                        
+                            return HttpResponseBadRequest(
+                                "Erroneous information was provided."
+                            )
+
                         # unquote necessary fields
                         data["group_name"] = remove_quotation(data["group_name"])
-                        
-                        store_entry(data_conn, info_conn, list(data.keys()), list(data.values()), database_name, f"{table_name}_tag_groups", table_name, "tag_groups")
+
+                        store_entry(
+                            data_conn,
+                            info_conn,
+                            database_name,
+                            f"{table_name}_tag_groups",
+                            table_name,
+                            "tag_groups",
+                            list(data.keys()),
+                            list(data.values()),
+                        )
                     case _:
-                        return HttpResponseBadRequest("Invalid URL. Expecting tags/[databaseName]/[tableName]/[tag_names/tag_aliases].")
-            except psycopg.Error as e:
+                        return HttpResponseBadRequest(
+                            "Invalid URL. Expecting tags/[databaseName]/[tableName]/[tag_names/tag_aliases]."
+                        )
+            except psycopg.Error:
                 data_conn.rollback()
                 info_conn.rollback()
-                return HttpResponseServerError("Database/schema check faliure. Contact the website administrator and dev for a fix.")
+                return HttpResponseServerError(
+                    "Database/schema check faliure. Contact the website administrator and dev for a fix."
+                )
 
         queue_sync()
         return HttpResponse()
-
 
     return HttpResponseBadRequest("Bad HTTP method. Expects GET or POST.")

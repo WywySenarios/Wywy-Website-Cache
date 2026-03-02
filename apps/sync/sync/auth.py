@@ -1,12 +1,14 @@
 from django.http import HttpRequest, HttpResponse, HttpResponseForbidden
+from typing import Callable
+
 
 class AuthMiddleware:
-    def __init__(self, get_response) -> None:
+    def __init__(self, get_response: Callable[[HttpRequest], HttpResponse]) -> None:
         self.get_response = get_response
-        
+
         with open("/run/secrets/admin", "r") as f:
             self.password = f.read()
-    
+
     def check_creds(self, request: HttpRequest) -> bool:
         """Checks if the user has admin privileges. @TODO sessions
 
@@ -18,18 +20,25 @@ class AuthMiddleware:
         """
         if "username" not in request.COOKIES or "password" not in request.COOKIES:
             return False
-        
-        if request.COOKIES["username"] == "admin" and request.COOKIES["password"] == self.password:
+
+        if (
+            request.COOKIES["username"] == "admin"
+            and request.COOKIES["password"] == self.password
+        ):
             return True
-        
+
         return False
 
     def __call__(self, request: HttpRequest) -> HttpResponse:
-        
+
         # check creds. Deny access if creds are invalid.
         # The authentication endpoint does not need authentication (avoid chicken & egg scenario).
         # This includes CSRF tokens!
-        if request.path.startswith("/auth") or request.path.startswith("/cache/csrf") or self.check_creds(request):
+        if (
+            request.path.startswith("/auth")
+            or request.path.startswith("/cache/csrf")
+            or self.check_creds(request)
+        ):
             response = self.get_response(request)
         else:
             response = HttpResponseForbidden("Invalid credentials.")
