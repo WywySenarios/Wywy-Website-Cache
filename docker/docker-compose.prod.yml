@@ -14,9 +14,7 @@ services:
       - path: ${UNIVERSAL_CONFIG_DIR}/cache/.env
         required: true
     environment:
-      - DB_PASSWORD=${DATABASE_PASSWORD}
-      - DB_USERNAME=${DATABASE_USERNAME}
-      - POSTGRES_PORT=5432
+      DATABASE_PORT: 5432
     depends_on:
       wywywebsite-cache_database:
         condition: service_healthy
