@@ -72,15 +72,20 @@ def sync() -> None:
                 case "data":
                     endpoint = f"{environ["DATABASE_URL"]}/{database_name}/{parent_table_name}/{table_type}"
                     select_query = construct_select_all_query(
-                    table_name,
-                    databases[database_name][table_name]["schema"],
-                    sql.SQL("WHERE {id_column_name}=%s").format(
-                        id_column_name=sql.Identifier(id_column_name)
-                    ),
-                )
+                        table_name,
+                        databases[database_name][table_name]["schema"],
+                        sql.SQL("WHERE {id_column_name}=%s").format(
+                            id_column_name=sql.Identifier(id_column_name)
+                        ),
+                    )
                 case _:
                     endpoint = f"{environ["DATABASE_URL"]}/{database_name}/{parent_table_name}/{table_type}/{table_name.removeprefix(f"{parent_table_name}_").removesuffix(f"_{table_type}")}"
-                    select_query = sql.SQL("SELECT * FROM {table_name} WHERE {id_column_name}=%s").format(table_name=sql.Identifier(table_name), id_column_name=sql.Identifier(id_column_name))
+                    select_query = sql.SQL(
+                        "SELECT * FROM {table_name} WHERE {id_column_name}=%s"
+                    ).format(
+                        table_name=sql.Identifier(table_name),
+                        id_column_name=sql.Identifier(id_column_name),
+                    )
 
             # get the information relating to the target
             target_record_conn = psycopg.connect(
