@@ -149,6 +149,8 @@ def decompose_entry(
                     values_shapes.append(sql.SQL("ST_GeographyFromText(%s)"))
                 case _:
                     values_shapes.append(sql.Placeholder())
+        elif schema[column_name]["optional"] is True:
+            values_shapes.append(sql.SQL("NULL"))
         else:
             raise ValueError(f"Column name {column_name} is not within the schema.")
 

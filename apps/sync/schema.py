@@ -376,10 +376,9 @@ def check_item(
         # @TODO min/max, etc. checks
 
     # check if all columns are present
-    # @TODO optional entries
     if require_inclusion:
         for column_name in schema:
-            if not column_name in data:
+            if not column_name in data and not schema[column_name]["optional"] is True:
                 if VERBOSITY_LEVEL > 0:
                     print(f"Column {column_name} not found inside the data.")
                 return False
