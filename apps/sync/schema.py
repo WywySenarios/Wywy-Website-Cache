@@ -378,7 +378,10 @@ def check_item(
     # check if all columns are present
     if require_inclusion:
         for column_name in schema:
-            if not column_name in data and not schema[column_name]["optional"] is True:
+            if (
+                not column_name in data
+                and not schema[column_name].get("optional", False) is True
+            ):
                 if VERBOSITY_LEVEL > 0:
                     print(f"Column {column_name} not found inside the data.")
                 return False
