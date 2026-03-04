@@ -22,7 +22,7 @@ def is_geodetic_point(value: Any) -> bool:
     if not isinstance(value, str):
         return False
     matches = re.fullmatch(
-        r"POINT(?: Z)? \((-?\d+(?:\.\d+)?) (-?\d+(?:\.\d+)?)(?: (-?\d+(?:\.\d+)?))?\)",
+        r"POINT ?\((-?\d+(?:\.\d+)?) (-?\d+(?:\.\d+)?)\)",
         value,
     )
     if matches is None:
@@ -32,10 +32,6 @@ def is_geodetic_point(value: Any) -> bool:
     if matches.group(1) is None or not (-180 < float(matches.group(1)) < 180):
         return False
     if matches.group(2) is None or not (-90 < float(matches.group(2)) < 90):
-        return False
-
-    # very lenient bounds for altitude
-    if matches.group(3) is not None and not (-1000 < float(matches.group(3)) < 9000):
         return False
 
     return True
