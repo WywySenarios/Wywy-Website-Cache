@@ -332,6 +332,20 @@ def check_item(
                 return False
             continue
 
+        if column_name.endswith("_altitude"):
+            if schema[column_name[: -len("_altitude")]]["datatype"] != "geodetic point":
+                if VERBOSITY_LEVEL > 0:
+                    print(
+                        f"Column {column_name[:-len("_altitude")]} is not a geodetic point and therefore cannot have an altitude."
+                    )
+                if not DATATYPE_CHECK["float"](data[display_column_name]):
+                    if VERBOSITY_LEVEL > 0:
+                        print(
+                            f"Invalid datatype for column {display_column_name}. Expected a float."
+                        )
+                return False
+            continue
+
         if column_name.endswith("_altitude_accuracy"):
             if (
                 schema[column_name[: -len("_altitude_accuracy")]]["datatype"]
