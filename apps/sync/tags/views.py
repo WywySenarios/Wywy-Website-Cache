@@ -87,7 +87,7 @@ def index(request: HttpRequest) -> HttpResponse:
                             or data["entry_id"] <= 0
                         ):
                             return HttpResponseBadRequest(
-                                "The ID of the entry that is being tagged must be a postivie integer."
+                                "The ID of the entry that is being tagged must be a positive integer."
                             )
                         if "tag_id" not in data:
                             return HttpResponseBadRequest("Related ID not provided.")
