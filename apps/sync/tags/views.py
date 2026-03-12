@@ -41,7 +41,6 @@ def index(request: HttpRequest) -> HttpResponse:
             f'Tagging is not enabled on table "{database_name}/{table_name}"'
         )
 
-    # only accept GET requests
     if request.method == "GET":
         # get results
         with psycopg.connect(
