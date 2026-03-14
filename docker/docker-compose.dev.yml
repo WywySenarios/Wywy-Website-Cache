@@ -1,6 +1,7 @@
+name: cache
+
 services:
-  wywywebsite-cache_create_tables:
-    container_name: wywywebsite-cache_create_tables
+  create_tables:
     tty: true
     working_dir: /apps/create_tables
     build:
@@ -26,14 +27,14 @@ services:
           target: ./apps/create_tables
           initial_sync: true
     depends_on:
-      wywywebsite-cache_database:
+      database:
         condition: service_healthy
     volumes:
       - ${UNIVERSAL_CONFIG_DIR}/config.yml:/apps/create_tables/config.yml
     command: python3 create_tables.py
 
-  wywywebsite-cache_sync:
-    container_name: wywywebsite-cache_sync
+  sync:
+    container_name: sync
     tty: true
     working_dir: /apps/sync
     build:
@@ -63,12 +64,11 @@ services:
       - ./../apps/sync:/apps/sync
       - ${UNIVERSAL_CONFIG_DIR}/config.yml:/apps/sync/config.yml
     depends_on:
-      wywywebsite-cache_database:
+      database:
         condition: service_healthy
 
   # @TODO secrets for db authentication
-  wywywebsite-cache_database:
-    container_name: wywywebsite-cache_postgres
+  database:
     build:
       context: ../
       dockerfile: apps/postgres/Dockerfile
