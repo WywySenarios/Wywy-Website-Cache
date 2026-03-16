@@ -60,6 +60,9 @@ services:
       - admin
     ports:
       - 8000:8000
+    networks:
+      - wywy_website_master_database-sql_receptionist
+      - default
     volumes:
       - ./../apps/sync:/apps/sync
       - ${UNIVERSAL_CONFIG_DIR}/config.yml:/apps/sync/config.yml
@@ -97,6 +100,12 @@ services:
     volumes:
       - ${DATA_DIR}/cache/postgres:/var/lib/postgresql/data
     shm_size: 128mb
+
+networks:
+  default: {}
+  wywy_website_master_database-sql_receptionist:
+    external: true
+    name: wywy_website_master_database-sql_receptionist
 
 secrets:
   admin:
