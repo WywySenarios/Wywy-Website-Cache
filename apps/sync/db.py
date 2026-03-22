@@ -70,6 +70,7 @@ def construct_select_all_query(
     table_name: str,
     schema: DictSchema,
     conditions: sql.Composable | sql.Composed = sql.SQL(""),
+    tagging: bool = False,
 ) -> sql.Composed:
     """Generates a SELECT query that contains all of the columns from the schema.
 
@@ -82,6 +83,9 @@ def construct_select_all_query(
         sql.Composed: _description_
     """
     values: List[sql.Composable] = []
+
+    if tagging:
+        values.append(sql.Identifier("primary_tag"))
 
     for column_name in schema:
         match (schema[column_name]["datatype"]):
