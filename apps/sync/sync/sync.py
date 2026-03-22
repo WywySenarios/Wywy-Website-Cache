@@ -77,6 +77,7 @@ def sync() -> None:
                         sql.SQL("WHERE {id_column_name}=%s").format(
                             id_column_name=sql.Identifier(id_column_name)
                         ),
+                        databases[database_name][table_name].get("tagging", False),
                     )
                 case _:
                     endpoint = f"{environ["DATABASE_URL"]}/{database_name}/{parent_table_name}/{table_type}/{table_name.removeprefix(f"{parent_table_name}_").removesuffix(f"_{table_type}")}"
