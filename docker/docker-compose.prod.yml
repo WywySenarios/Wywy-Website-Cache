@@ -70,7 +70,6 @@ services:
 
   # @TODO secrets for db authentication
   database:
-    container_name: postgres
     build:
       context: ../
       dockerfile: apps/postgres/Dockerfile
