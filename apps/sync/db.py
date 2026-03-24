@@ -69,7 +69,9 @@ def update_foreign_key(
 def construct_select_all_query(
     table_name: str,
     schema: DictSchema,
+    column_name_prefix: str = "",
     conditions: sql.Composable | sql.Composed = sql.SQL(""),
+    values: List[sql.Composable] = [],
     tagging: bool = False,
 ) -> sql.Composed:
     """Generates a SELECT query that contains all of the columns from the schema.
@@ -82,7 +84,6 @@ def construct_select_all_query(
     Returns:
         sql.Composed: _description_
     """
-    values: List[sql.Composable] = []
 
     if tagging:
         values.append(sql.Identifier("primary_tag"))
@@ -92,13 +93,21 @@ def construct_select_all_query(
             case "geodetic point":
                 values.append(
                     sql.SQL("ST_AsText({column_name}) AS {column_name}").format(
-                        column_name=sql.Identifier(column_name)
+                        column_name=sql.Identifier(f"{column_name_prefix}{column_name}")
                     )
                 )
-                values.append(sql.Identifier(f"{column_name}_latlong_accuracy"))
-                values.append(sql.Identifier(f"{column_name}_altitude_accuracy"))
+                values.append(
+                    sql.Identifier(
+                        f"{column_name_prefix}{column_name}_latlong_accuracy"
+                    )
+                )
+                values.append(
+                    sql.Identifier(
+                        f"{column_name_prefix}{column_name}_altitude_accuracy"
+                    )
+                )
             case _:
-                values.append(sql.Identifier(column_name))
+                values.append(sql.Identifier(f"{column_name_prefix}{column_name}"))
 
     return sql.SQL("SELECT {values} from {table_name} {conditions};").format(
         values=sql.SQL(", ").join(values),
