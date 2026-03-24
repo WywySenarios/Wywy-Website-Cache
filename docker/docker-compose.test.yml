@@ -1,0 +1,52 @@
+name: cache
+
+services:
+  test:
+    working_dir: /apps/sync
+    build:
+      context: ../
+      dockerfile: apps/tests/Dockerfile
+    env_file:
+      - path: ${UNIVERSAL_CONFIG_DIR}/.env
+        required: true
+      - path: ${UNIVERSAL_CONFIG_DIR}/.env.dev
+        required: true
+      - path: ${UNIVERSAL_CONFIG_DIR}/cache/.env
+        required: true
+      - path: ${UNIVERSAL_CONFIG_DIR}/cache/.env.dev
+        required: true
+    environment:
+      - POSTGRES_PASSWORD=${DATABASE_PASSWORD}
+      - POSTGRES_USER=${DATABASE_USERNAME}
+      - POSTGRES_PORT=5432
+      - DEV=TRUE
+    secrets:
+      - admin
+    networks:
+      - default
+    volumes:
+      - ./../apps/sync:/apps/sync
+      - ${UNIVERSAL_CONFIG_DIR}/config.yml:/apps/sync/config.yml
+    depends_on:
+      create_tables:
+        condition: service_completed_successfully
+      database:
+        condition: service_healthy
+    # command: sleep 3600
+
+  # @TODO secrets for db authentication
+  database:
+    restart: no
+    environment:
+      PGDATA: /tmp/postgres
+    volumes:
+      - ${UNIVERSAL_CONFIG_DIR}/master-database/postgres/postgresql.dev.conf:/etc/postgresql/postgresql.conf:ro
+      - ${UNIVERSAL_CONFIG_DIR}/master-database/postgres/pg_hba.conf:/etc/postgresql/pg_hba.conf:ro
+
+# @TODO determine if SQL receptionist network needs to be added
+networks:
+  default: {}
+
+secrets:
+  admin:
+    file: ${SECRETS_DIR}/admin.txt
