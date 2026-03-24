@@ -12,8 +12,8 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 
 from pathlib import Path
 import os
-
 from os import environ
+from sync.sync import enable_autosync
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -149,6 +149,9 @@ DATABASES = {
         },
     },
 }
+
+# enable auto-sync
+enable_autosync()
 
 
 # Password validation

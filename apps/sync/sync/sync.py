@@ -9,7 +9,7 @@ from constants import CONN_CONFIG
 import psycopg
 from psycopg.rows import dict_row
 from psycopg import sql
-from typing import Literal, Any, cast
+from typing import List, Literal, Any, Tuple, cast
 
 from utils import get_env_int
 from schema import databases
@@ -39,6 +39,165 @@ def auto_sync(sync_event: threading.Event) -> None:
         sync()
 
 
+def enable_autosync():
+    AUTO_SYNC_THREAD.start()
+
+
+def prepare_payload(
+    target_id: str,
+    database_name: str,
+    table_name: str,
+    parent_table_name: str,
+    table_type: str,
+) -> Tuple[str, dict[str, Any]] | None:
+    id_column_name: str = "id"
+    tagging: bool = False
+    if table_type == "data" and table_name == parent_table_name:
+        tagging = databases[database_name][parent_table_name].get("tagging", False)
+    # update the ID column information
+    match (table_type):
+        case "tag_aliases":
+            id_column_name = "alias"
+        case _:
+            pass
+
+    # find the correct endpoint to POST to & construct the relevant select query
+    endpoint: str = ""
+    select_query: sql.Composed
+    id_column = sql.SQL("{table_name}.{id_column_name}").format(
+        table_name=sql.Identifier(table_name),
+        id_column_name=sql.Identifier(id_column_name),
+    )
+    match (table_type):
+        case "data":
+            values: List[sql.Composable] = []
+            conditions: List[sql.Composable] = []
+            if tagging:
+                conditions.append(
+                    sql.SQL(
+                        "INNER JOIN sync_status ON sync_status.database_name={database_name} AND sync_status.table_name={tagging_table_name} AND {primary_tag_column}=sync_status.entry_id::integer "
+                    ).format(
+                        database_name=sql.Literal(database_name),
+                        tagging_table_name=sql.Literal(f"{table_name}_tag_names"),
+                        primary_tag_column=sql.SQL("{table_name}.primary_tag").format(
+                            table_name=sql.Identifier(parent_table_name),
+                        ),
+                        id_column_name=sql.Identifier(id_column_name),
+                    )
+                )
+                values.append(sql.SQL("sync_status.remote_id::integer AS primary_tag"))
+                tagging = False
+
+            conditions.append(
+                sql.SQL("WHERE {id_column_name}=%s").format(id_column_name=id_column)
+            )
+
+            endpoint = f"{environ["DATABASE_URL"]}/{database_name}/{parent_table_name}/{table_type}"
+            select_query = construct_select_all_query(
+                table_name,
+                databases[database_name][table_name]["schema"],
+                values=values,
+                conditions=sql.Composed(conditions),
+                tagging=tagging,
+            )
+            # LEFT JOIN sync_status ON entry_id = this.primary_tag
+        case _:
+            # @TODO test if tag_names works.
+            endpoint = f"{environ["DATABASE_URL"]}/{database_name}/{parent_table_name}/{table_type}/{table_name.removeprefix(f"{parent_table_name}_").removesuffix(f"_{table_type}")}"
+            select_query = sql.SQL(
+                "SELECT * FROM {table_name} WHERE {id_column_name}=%s"
+            ).format(
+                table_name=sql.Identifier(table_name),
+                id_column_name=id_column,
+            )
+
+    # get the information relating to the target
+    target_record_conn = psycopg.connect(
+        **CONN_CONFIG,
+        dbname=database_name,
+        row_factory=dict_row,  # type: ignore[arg-type]
+    )
+    target_record_cur = target_record_conn.execute(
+        select_query,
+        (target_id,),
+    )
+
+    # contact sql-receptionist and ask for a record addition
+    # @TODO sql-receptionist should reject problematic id keys
+    payload = target_record_cur.fetchone()
+    if payload is None:
+        return
+    payload = dict(payload)
+    target_record_cur.close()
+    target_record_conn.close()
+    for k, v in payload.items():
+        # if v is None:
+        #     print(
+        #         f"Sync failed. Anomalous item: ({database_name}/{table_name} ({parent_table_name})): {payload}"
+        #     )
+        #     status = "anomalous"
+        #     break
+        if (
+            isinstance(v, datetime.datetime)
+            or isinstance(v, datetime.date)
+            or isinstance(v, datetime.time)
+        ):
+            payload[k] = f"'{v.isoformat()}'"
+        elif isinstance(v, str):
+            payload[k] = f"'{v.removeprefix("'").removesuffix("'")}'"
+
+    # remove numerical id because the sql-receptionist will take care of that.
+    if "id" in payload:
+        del payload["id"]
+
+    # @TODO check if the target already exists
+
+    status: None | Literal["updated", "failed", "anomalous", "added"] = None
+
+    # if there isn't a status yet,
+    if status is None:
+        # correct the foreign key to the master database's key ids. If those key IDs are not yet available, abort.
+        try:
+            match (table_type):
+                case "tag_aliases":
+                    update_foreign_key(
+                        payload,
+                        database_name,
+                        f"{parent_table_name}_tag_names",
+                        "tag_id",
+                        target_type=int,
+                    )
+                case "tag_groups":
+                    update_foreign_key(
+                        payload,
+                        database_name,
+                        f"{parent_table_name}_tag_names",
+                        "tag_id",
+                        target_type=int,
+                    )
+                case "tags":
+                    update_foreign_key(
+                        payload,
+                        database_name,
+                        f"{parent_table_name}_tag_names",
+                        "tag_id",
+                        target_type=int,
+                    )
+                    update_foreign_key(
+                        payload,
+                        database_name,
+                        parent_table_name,
+                        "entry_id",
+                        target_type=int,
+                    )
+                case _:
+                    pass
+        except RuntimeError:
+            status = "failed"
+
+    return (endpoint, payload)
+
+
 def sync() -> None:
     with psycopg.connect(**CONN_CONFIG, dbname="info") as info_conn:
         # select all targets that need syncing (failed, not synced yet (NULL)) (do not select mismatch for now)
@@ -53,78 +212,20 @@ def sync() -> None:
             table_name: str = target[1]
             parent_table_name: str = target[2]
             table_type: str = target[3]
-            id_column_name: str = "id"
-
-            # update the ID column information
-            match (table_type):
-                case "tag_aliases":
-                    id_column_name = "alias"
-                case _:
-                    pass
-
             database_name: str = target[4]
             target_id: str = target[5]
 
-            # find the correct endpoint to POST to & construct the relevant select query
-            endpoint: str = ""
-            select_query: sql.Composed
-            match (table_type):
-                case "data":
-                    endpoint = f"{environ["DATABASE_URL"]}/{database_name}/{parent_table_name}/{table_type}"
-                    select_query = construct_select_all_query(
-                        table_name,
-                        databases[database_name][table_name]["schema"],
-                        sql.SQL("WHERE {id_column_name}=%s").format(
-                            id_column_name=sql.Identifier(id_column_name)
-                        ),
-                        databases[database_name][table_name].get("tagging", False),
-                    )
-                case _:
-                    endpoint = f"{environ["DATABASE_URL"]}/{database_name}/{parent_table_name}/{table_type}/{table_name.removeprefix(f"{parent_table_name}_").removesuffix(f"_{table_type}")}"
-                    select_query = sql.SQL(
-                        "SELECT * FROM {table_name} WHERE {id_column_name}=%s"
-                    ).format(
-                        table_name=sql.Identifier(table_name),
-                        id_column_name=sql.Identifier(id_column_name),
-                    )
+            data = prepare_payload(
+                target_id, database_name, table_name, parent_table_name, table_type
+            )
+            if data is None:
+                continue
 
-            # get the information relating to the target
-            target_record_conn = psycopg.connect(
-                **CONN_CONFIG,
-                dbname=database_name,
-                row_factory=dict_row,  # type: ignore[arg-type]
-            )
-            target_record_cur = target_record_conn.execute(
-                select_query,
-                (target_id,),
-            )
+            endpoint, payload = data
 
             # @TODO check if the target already exists
 
             status: None | Literal["updated", "failed", "anomalous", "added"] = None
-
-            # contact sql-receptionist and ask for a record addition
-            # @TODO sql-receptionist should reject problematic id keys
-            payload = dict(next(target_record_cur))
-            for k, v in payload.items():
-                # if v is None:
-                #     print(
-                #         f"Sync failed. Anomalous item: ({database_name}/{table_name} ({parent_table_name})): {payload}"
-                #     )
-                #     status = "anomalous"
-                #     break
-                if (
-                    isinstance(v, datetime.datetime)
-                    or isinstance(v, datetime.date)
-                    or isinstance(v, datetime.time)
-                ):
-                    payload[k] = f"'{v.isoformat()}'"
-                elif isinstance(v, str):
-                    payload[k] = f"'{v.removeprefix("'").removesuffix("'")}'"
-
-            # remove numerical id because the sql-receptionist will take care of that.
-            if "id" in payload:
-                del payload["id"]
 
             # if there isn't a status yet,
             if status is None:
@@ -211,7 +312,6 @@ def sync() -> None:
                         sync_status_id,
                     ),
                 ).close()
-            target_record_cur.close()
         targets_cur.close()
 
         if SYNC_VERBOSITY > 0:
@@ -364,4 +464,3 @@ SYNC_EVENT: threading.Event = threading.Event()
 AUTO_SYNC_THREAD: threading.Thread = threading.Thread(
     target=auto_sync, args=(SYNC_EVENT,)
 )
-AUTO_SYNC_THREAD.start()
