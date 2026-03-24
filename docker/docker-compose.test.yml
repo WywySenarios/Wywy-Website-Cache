@@ -3,6 +3,7 @@ name: cache
 services:
   test:
     working_dir: /apps/sync
+    tty: true
     build:
       context: ../
       dockerfile: apps/tests/Dockerfile
