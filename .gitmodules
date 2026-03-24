@@ -4,3 +4,6 @@
 [submodule "apps/sync/Wywy_Website_Types"]
 	path = apps/sync/Wywy_Website_Types
 	url = https://github.com/WywySenarios/Wywy-Website-Python-Types.git
+[submodule "apps/sync/tests/helpers"]
+	path = apps/sync/tests/helpers
+	url = https://github.com/WywySenarios/Wywy-Website-Testing-Helpers
