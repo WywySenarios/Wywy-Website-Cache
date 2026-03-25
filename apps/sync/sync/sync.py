@@ -131,12 +131,6 @@ def prepare_payload(
     target_record_cur.close()
     target_record_conn.close()
     for k, v in payload.items():
-        # if v is None:
-        #     print(
-        #         f"Sync failed. Anomalous item: ({database_name}/{table_name} ({parent_table_name})): {payload}"
-        #     )
-        #     status = "anomalous"
-        #     break
         if (
             isinstance(v, datetime.datetime)
             or isinstance(v, datetime.date)
@@ -150,50 +144,48 @@ def prepare_payload(
     if "id" in payload:
         del payload["id"]
 
-    # @TODO check if the target already exists
-
-    status: None | Literal["updated", "failed", "anomalous", "added"] = None
+    # status: None | Literal["updated", "failed", "anomalous", "added"] = None
 
     # if there isn't a status yet,
-    if status is None:
-        # correct the foreign key to the master database's key ids. If those key IDs are not yet available, abort.
-        try:
-            match (table_type):
-                case "tag_aliases":
-                    update_foreign_key(
-                        payload,
-                        database_name,
-                        f"{parent_table_name}_tag_names",
-                        "tag_id",
-                        target_type=int,
-                    )
-                case "tag_groups":
-                    update_foreign_key(
-                        payload,
-                        database_name,
-                        f"{parent_table_name}_tag_names",
-                        "tag_id",
-                        target_type=int,
-                    )
-                case "tags":
-                    update_foreign_key(
-                        payload,
-                        database_name,
-                        f"{parent_table_name}_tag_names",
-                        "tag_id",
-                        target_type=int,
-                    )
-                    update_foreign_key(
-                        payload,
-                        database_name,
-                        parent_table_name,
-                        "entry_id",
-                        target_type=int,
-                    )
-                case _:
-                    pass
-        except RuntimeError:
-            status = "failed"
+    # if status is None:
+    #     # correct the foreign key to the master database's key ids. If those key IDs are not yet available, abort.
+    #     try:
+    #         match (table_type):
+    #             case "tag_aliases":
+    #                 update_foreign_key(
+    #                     payload,
+    #                     database_name,
+    #                     f"{parent_table_name}_tag_names",
+    #                     "tag_id",
+    #                     target_type=int,
+    #                 )
+    #             case "tag_groups":
+    #                 update_foreign_key(
+    #                     payload,
+    #                     database_name,
+    #                     f"{parent_table_name}_tag_names",
+    #                     "tag_id",
+    #                     target_type=int,
+    #                 )
+    #             case "tags":
+    #                 update_foreign_key(
+    #                     payload,
+    #                     database_name,
+    #                     f"{parent_table_name}_tag_names",
+    #                     "tag_id",
+    #                     target_type=int,
+    #                 )
+    #                 update_foreign_key(
+    #                     payload,
+    #                     database_name,
+    #                     parent_table_name,
+    #                     "entry_id",
+    #                     target_type=int,
+    #                 )
+    #             case _:
+    #                 pass
+    #     except RuntimeError:
+    #         status = "failed"
 
     return (endpoint, payload)
 
@@ -218,19 +210,22 @@ def sync() -> None:
             data = prepare_payload(
                 target_id, database_name, table_name, parent_table_name, table_type
             )
-            if data is None:
-                continue
-
-            endpoint, payload = data
 
             # @TODO check if the target already exists
 
             status: None | Literal["updated", "failed", "anomalous", "added"] = None
+            endpoint = None
+            payload = None
+            remote_id: int | str | None = None
 
-            # if there isn't a status yet,
-            if status is None:
+            if data is None:
+                status = "failed"
+            else:
+                endpoint, payload = data
+
                 # correct the foreign key to the master database's key ids. If those key IDs are not yet available, abort.
                 try:
+                    # @TODO move logic to JOIN queries
                     match (table_type):
                         case "tag_aliases":
                             update_foreign_key(
@@ -265,53 +260,49 @@ def sync() -> None:
                             )
                         case _:
                             pass
+
+                    with open("/run/secrets/admin", "r") as f:
+                        response = requests.post(
+                            endpoint,
+                            timeout=5,
+                            headers={"Origin": environ["CACHE_URL"]},
+                            cookies={"username": "admin", "password": f.read()},
+                            json=payload,
+                        )
+                        response.raise_for_status()
+
+                        remote_id = response.text
+
+                        if not remote_id:
+                            raise ValueError("remote_id is not valid.")
+                        status = "added"
                 except RuntimeError:
                     status = "failed"
+                except (requests.HTTPError, requests.exceptions.RequestException):
+                    status = "failed"
+                except ValueError:
+                    status = "anomalous"
+                else:
+                    status = "added"
 
-            remote_id: int | str | None = None
-
-            try:
-                if status == "failed":  # or status == "anomalous":
-                    raise Warning()
-                with open("/run/secrets/admin", "r") as f:
-                    response = requests.post(
-                        endpoint,
-                        timeout=5,
-                        headers={"Origin": environ["CACHE_URL"]},
-                        cookies={"username": "admin", "password": f.read()},
-                        json=payload,
-                    )
-                    response.raise_for_status()
-
-                    remote_id = response.text
-
-                    if not remote_id:
-                        raise ValueError("remote_id is not valid.")
-            except (requests.HTTPError, requests.exceptions.RequestException):
-                status = "failed"
-                num_failures += 1
-            except ValueError:
-                status = "anomalous"
-                num_failures += 1
-            except Warning:
-                num_failures += 1
-            else:
-                status = "added"
-                num_successes += 1
-            finally:
-                info_conn.execute(
-                    """
-                                UPDATE sync_status
-                                SET status=%s, sync_timestamp=%s, remote_id=%s
-                                WHERE "id"=%s;
-                                """,
-                    (
-                        status,
-                        datetime.datetime.now().isoformat(),
-                        remote_id,
-                        sync_status_id,
-                    ),
-                ).close()
+            match (status):
+                case "added":
+                    num_successes += 1
+                case _:
+                    num_failures += 1
+            info_conn.execute(
+                """
+                UPDATE sync_status
+                SET status=%s, sync_timestamp=%s, remote_id=%s
+                WHERE "id"=%s;
+                """,
+                (
+                    status,
+                    datetime.datetime.now().isoformat(),
+                    remote_id,
+                    sync_status_id,
+                ),
+            ).close()
         targets_cur.close()
 
         if SYNC_VERBOSITY > 0:
@@ -325,8 +316,6 @@ def sync() -> None:
             )
             print(summary_cur.fetchall())
             summary_cur.close()
-
-    # print("Sync complete.")
 
 
 def pull(database_name: str, parent_table_name: str, table_type: str = "data") -> None:
