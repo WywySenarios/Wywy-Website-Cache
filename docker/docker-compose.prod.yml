@@ -15,6 +15,7 @@ services:
       - path: ${UNIVERSAL_CONFIG_DIR}/cache/.env
         required: true
     environment:
+      SERVICE_NAME: cache
       DATABASE_PORT: 5432
     depends_on:
       database:

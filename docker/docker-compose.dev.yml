@@ -19,6 +19,7 @@ services:
       - path: ${UNIVERSAL_CONFIG_DIR}/cache/.env.dev
         required: true
     environment:
+      SERVICE_NAME: cache
       DATABASE_PORT: 5432
     develop:
       watch:
