@@ -1,7 +1,7 @@
 # datatype checking functions
 import logging
 import re
-from utils import to_lower_snake_case, get_env_int
+from utils import to_lower_snake_case
 from constants import CONN_CONFIG
 from Wywy_Website_Types import (
     Datatype,
