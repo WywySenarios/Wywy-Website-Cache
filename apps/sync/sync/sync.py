@@ -1,4 +1,5 @@
 # @TODO fix multithreading database transaction issues >:(
+import logging
 import threading
 from django.http import HttpRequest, HttpResponse
 import requests
@@ -16,6 +17,7 @@ from schema import databases
 from db import update_foreign_key, store_entry, construct_select_all_query
 
 SYNC_VERBOSITY = get_env_int("SYNC_VERBOSITY", 0)
+logger = logging.getLogger("sync")
 
 
 def auto_sync(sync_event: threading.Event) -> None:
@@ -25,16 +27,15 @@ def auto_sync(sync_event: threading.Event) -> None:
     if not auto_sync_interval > 0:
         auto_sync_interval = 5
 
-    print(f"Auto-sync is set to sync every {auto_sync_interval} minutes.")
+    logger.info(f"Auto-sync is set to sync every {auto_sync_interval} minutes.")
 
     while True:
         # wait until automatic sync interval or until interupted
         if sync_event.wait(timeout=(auto_sync_interval * 60)):
-            # print("Sync requested via interupt...")
+            logger.debug("Starting automatic sync.")
             sync_event.clear()
         else:
-            pass
-            # print("Automatically syncing...")
+            logger.debug("Starting automatic sync.")
 
         sync()
 
@@ -305,16 +306,15 @@ def sync() -> None:
             ).close()
         targets_cur.close()
 
-        if SYNC_VERBOSITY > 0:
-            print(
-                f"Successfully synced {num_successes} entries and failed to sync {num_failures} entries."
-            )
+        logger.info(
+            f"Successfully synced {num_successes} entries and failed to sync {num_failures} entries."
+        )
 
         if SYNC_VERBOSITY > 1:
             summary_cur = info_conn.execute(
                 "SELECT * FROM sync_status WHERE status='failed';"
             )
-            print(summary_cur.fetchall())
+            logger.debug(summary_cur.fetchall())
             summary_cur.close()
 
 

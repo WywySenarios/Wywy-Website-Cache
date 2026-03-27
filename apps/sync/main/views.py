@@ -1,3 +1,4 @@
+import logging
 from django.http import (
     HttpResponse,
     JsonResponse,
@@ -18,6 +19,8 @@ from utils import to_lower_snake_case, chunkify_url
 from schema import check_entry, databases
 from sync.sync import queue_sync
 from db import store_entry, decompose_entry
+
+logger = logging.getLogger("database")
 
 
 def index(request: HttpRequest) -> HttpResponse:
@@ -213,7 +216,7 @@ def index(request: HttpRequest) -> HttpResponse:
                                 ),
                             )
             except (psycopg.Error, ValueError) as e:
-                print(e)
+                logger.error(e)
                 data_conn.rollback()
                 info_conn.rollback()
                 return HttpResponseServerError(
