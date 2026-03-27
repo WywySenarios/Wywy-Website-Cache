@@ -12,11 +12,9 @@ from psycopg.rows import dict_row
 from psycopg import sql
 from typing import List, Literal, Any, Tuple, cast
 
-from utils import get_env_int
 from schema import databases
 from db import update_foreign_key, store_entry, construct_select_all_query
 
-SYNC_VERBOSITY = get_env_int("SYNC_VERBOSITY", 0)
 logger = logging.getLogger("sync")
 
 
@@ -309,13 +307,6 @@ def sync() -> None:
         logger.info(
             f"Successfully synced {num_successes} entries and failed to sync {num_failures} entries."
         )
-
-        if SYNC_VERBOSITY > 1:
-            summary_cur = info_conn.execute(
-                "SELECT * FROM sync_status WHERE status='failed';"
-            )
-            logger.debug(summary_cur.fetchall())
-            summary_cur.close()
 
 
 def pull(database_name: str, parent_table_name: str, table_type: str = "data") -> None:
