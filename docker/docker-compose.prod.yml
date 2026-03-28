@@ -22,6 +22,7 @@ services:
         condition: service_healthy
     volumes:
       - ${UNIVERSAL_CONFIG_DIR}/config.yml:/apps/create_tables/config.yml
+      - /var/log/Wywy-Website/cache:/var/log/Wywy-Website/create_tables
     command: python3 create_tables.py
 
   cloudflared:
@@ -64,6 +65,7 @@ services:
     volumes:
       - ./../apps/sync:/apps/sync
       - ${UNIVERSAL_CONFIG_DIR}/config.yml:/apps/sync/config.yml
+      - /var/log/Wywy-Website/cache:/var/log/Wywy-Website/cache
     depends_on:
       database:
         condition: service_healthy
