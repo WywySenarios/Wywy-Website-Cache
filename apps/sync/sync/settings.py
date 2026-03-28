@@ -204,12 +204,14 @@ LOGGING: Dict[str, Any] = {
         "database": {
             "level": "WARNING",
             "class": "logging.FileHandler",
-            "filename": "var/log/Wywy-Website/cache/database.log",
+            "filename": "/var/log/Wywy-Website/cache/database.log",
+            "formatter": "simple",
         },
         "database-debug": {
             "level": "DEBUG",
             "class": "logging.FileHandler",
-            "filename": "var/log/Wywy-Website/cache/database-debug.log",
+            "filename": "/var/log/Wywy-Website/cache/database-debug.log",
+            "formatter": "verbose",
         },
     },
     "root": {
