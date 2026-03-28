@@ -1,8 +1,11 @@
+import logging
 import psycopg
 from psycopg import sql, Connection
 from typing import Any, List, TypedDict
 from Wywy_Website_Types import EntryData, DictSchema
 from constants import CONN_CONFIG
+
+logger = logging.getLogger("database")
 
 
 def get_remote_id(
@@ -54,13 +57,14 @@ def update_foreign_key(
 
     remote_id = get_remote_id(database_name, table_name, entry[target])
     if remote_id is None:
+        logger.error(f"Remote ID {target} not found in {database_name}/{table_name}.")
         raise RuntimeError("Remote ID not found.")
 
     if target_type is not None:
         try:
             remote_id = target_type(remote_id)
         except (ValueError, TypeError):
-            print(f"Cannot coerce `{remote_id}` to `{target_type.__name__}`")
+            logger.error(f"Cannot coerce `{remote_id}` to `{target_type.__name__}.`")
             raise
 
     entry[target] = remote_id

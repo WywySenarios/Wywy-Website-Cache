@@ -14,6 +14,8 @@ from pathlib import Path
 import os
 from os import environ
 from sync.sync import enable_autosync
+from typing import Dict, Any, List
+from django.core.management.utils import get_random_secret_key
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -22,11 +24,9 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
 
-# SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = "django-insecure-o#&2j^jvh*j#x(nu=%+h+i&@+le=7euo67$_c(ee9^5#-hkpbl"
+SECRET_KEY = get_random_secret_key()
 
 # SECURITY WARNING: don't run with debug turned on in production!
-
 DEV: bool = environ.get("DEV", "false").lower() == "true"
 DEBUG = DEV
 
@@ -104,7 +104,7 @@ SESSION_COOKIE_DOMAIN = environ["CACHE_DOMAIN"]
 
 ROOT_URLCONF = "sync.urls"
 
-TEMPLATES = [
+TEMPLATES: List[Dict[str, Any]] = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
         "DIRS": [],
@@ -125,7 +125,7 @@ WSGI_APPLICATION = "sync.wsgi.application"
 # Database
 # https://docs.djangoproject.com/en/6.0/ref/settings/#databases
 
-DATABASES = {
+DATABASES: Dict[str, Any] = {
     "default": {
         "ENGINE": "django.db.backends.postgresql",
         "NAME": "wywywebsite",
@@ -146,6 +146,98 @@ DATABASES = {
         "PORT": os.environ.get("POSTGRES_PORT", "5433"),
         "OPTIONS": {
             "connect_timeout": 5,
+        },
+    },
+}
+
+LOGGING: Dict[str, Any] = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "verbose": {
+            "format": "{levelname} {asctime} {module} {process:d} {thread:d} {message}",
+            "style": "{",
+        },
+        "simple": {
+            "format": "{levelname} {message}",
+            "style": "{",
+        },
+    },
+    "handlers": {
+        "console": {"class": "logging.StreamHandler", "formatter": "simple"},
+        "sync": {
+            "level": os.getenv("SYNC_LOG_LEVEL", "INFO"),
+            "class": "logging.FileHandler",
+            "filename": "/var/log/Wywy-Website/cache/sync.log",
+            "formatter": "simple",
+        },
+        "sync-debug": {
+            "level": "DEBUG",
+            "class": "logging.FileHandler",
+            "filename": "/var/log/Wywy-Website/cache/sync-debug.log",
+            "formatter": "verbose",
+        },
+        "cache": {
+            "level": os.getenv("CACHE_LOG_LEVEL", "WARNING"),
+            "class": "logging.FileHandler",
+            "filename": "/var/log/Wywy-Website/cache/cache.log",
+            "formatter": "simple",
+        },
+        "cache-debug": {
+            "level": "DEBUG",
+            "class": "logging.FileHandler",
+            "filename": "/var/log/Wywy-Website/cache/cache-debug.log",
+            "formatter": "verbose",
+        },
+        "schema": {
+            "level": os.getenv("SCHEMA_LOG_LEVEL", "WARNING"),
+            "class": "logging.FileHandler",
+            "filename": "/var/log/Wywy-Website/cache/schema.log",
+            "formatter": "simple",
+        },
+        "schema-debug": {
+            "level": "DEBUG",
+            "class": "logging.FileHandler",
+            "filename": "/var/log/Wywy-Website/cache/schema-debug.log",
+            "formatter": "verbose",
+        },
+        "database": {
+            "level": "WARNING",
+            "class": "logging.FileHandler",
+            "filename": "/var/log/Wywy-Website/cache/database.log",
+            "formatter": "simple",
+        },
+        "database-debug": {
+            "level": "DEBUG",
+            "class": "logging.FileHandler",
+            "filename": "/var/log/Wywy-Website/cache/database-debug.log",
+            "formatter": "verbose",
+        },
+    },
+    "root": {
+        "handlers": ["console"],
+        "level": "WARNING",
+    },
+    "loggers": {
+        "sync": {
+            "handlers": ["sync", "sync-debug"],
+            "level": "DEBUG",
+            "propagate": True,
+        },
+        "cache": {
+            "handlers": ["cache", "cache-debug"],
+            "level": "DEBUG",
+            "propagate": True,
+        },
+        "schema": {
+            "handlers": ["schema", "schema-debug"],
+            "level": "DEBUG",
+            "propagate": True,
+        },
+        "database": {
+            "handlers": ["database", "database-debug"],
+            "level": "DEBUG",
+            "propagate": True,
         },
     },
 }

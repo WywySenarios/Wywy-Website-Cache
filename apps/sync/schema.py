@@ -1,6 +1,7 @@
 # datatype checking functions
+import logging
 import re
-from utils import to_lower_snake_case, get_env_int
+from utils import to_lower_snake_case
 from constants import CONN_CONFIG
 from Wywy_Website_Types import (
     Datatype,
@@ -15,7 +16,7 @@ from typing import Callable, Any, List
 import psycopg
 from psycopg import sql
 
-VERBOSITY_LEVEL = get_env_int("SCHEMA_CHECK_VERBOSITY", 0)
+logger = logging.getLogger("schema")
 
 
 def is_geodetic_point(value: Any) -> bool:
@@ -170,8 +171,7 @@ def check_entry(entry: Entry, database_name: str, table_info: DictTableInfo) -> 
     """
 
     if not "data" in entry or not check_item(entry["data"], table_info["schema"]):
-        if VERBOSITY_LEVEL > 0:
-            print("There is no data or the data is in an unexpected format.")
+        logger.debug("There is no data or the data is in an unexpected format.")
         return False
 
     # @TODO check tags
@@ -180,23 +180,20 @@ def check_entry(entry: Entry, database_name: str, table_info: DictTableInfo) -> 
     ):  # if tagging is enabled,
         # ensure that there is a primary tag
         if "primary_tag" not in entry["data"]:
-            if VERBOSITY_LEVEL > 0:
-                print(
-                    f"Tagging is enabled on table {table_info["tableName"]}. You must provide a primary tag."
-                )
+            logger.debug(
+                f"Tagging is enabled on table {table_info["tableName"]}. You must provide a primary tag."
+            )
 
         # ensure that secondary tags are declared
         if "tags" not in entry:
-            if VERBOSITY_LEVEL > 0:
-                print(
-                    f"Tagging is enabled on table {table_info["tableName"]}. You must give additional secondary tags or declare that there are none by passing in an empty array."
-                )
+            logger.debug(
+                f"Tagging is enabled on table {table_info["tableName"]}. You must give additional secondary tags or declare that there are none by passing in an empty array."
+            )
             return False
 
         # validate typing of supplied information
         if not isinstance(entry["tags"], list):
-            if VERBOSITY_LEVEL > 0:
-                print("An array of tags must be provided. This array can be empty.")
+            logger.debug("An array of tags must be provided. This array can be empty.")
             return False
 
         # validate the tags
@@ -205,23 +202,20 @@ def check_entry(entry: Entry, database_name: str, table_info: DictTableInfo) -> 
             database_name,
             table_info["tableName"],
         ):
-            if VERBOSITY_LEVEL > 0:
-                print("Invalid tags.")
+            logger.debug("Invalid tags.")
             return False
     # if tagging is disabled, ensure that there are no tags
     else:
         if "primary_tag" in entry["data"]:
-            if VERBOSITY_LEVEL > 0:
-                print(
-                    f"Tagging is disabled on table {table_info["tableName"]}. You cannot supply a primary tag."
-                )
+            logger.debug(
+                f"Tagging is disabled on table {table_info["tableName"]}. You cannot supply a primary tag."
+            )
             return False
 
         if "tags" in entry:
-            if VERBOSITY_LEVEL > 0:
-                print(
-                    f"Tagging is disabled on table {table_info["tableName"]}. You cannot supply secondary tags."
-                )
+            logger.debug(
+                f"Tagging is disabled on table {table_info["tableName"]}. You cannot supply secondary tags."
+            )
             return False
 
     # check descriptors
@@ -234,8 +228,7 @@ def check_entry(entry: Entry, database_name: str, table_info: DictTableInfo) -> 
 
     if "descriptors" in entry:
         if "descriptors" not in table_info:
-            if VERBOSITY_LEVEL > 0:
-                print(f"This table has no descriptors.")
+            logger.debug(f"This table has no descriptors.")
             return False
 
         # check each descriptor individually
@@ -243,31 +236,27 @@ def check_entry(entry: Entry, database_name: str, table_info: DictTableInfo) -> 
         for descriptor_name in entry["descriptors"]:
             # verify if this descriptor is in the config
             if not descriptor_name in table_info["descriptors"]:
-                if VERBOSITY_LEVEL > 0:
-                    print(f'Descriptor type "{descriptor_name}" was not found.')
+                logger.debug(f'Descriptor type "{descriptor_name}" was not found.')
                 return False
 
             if not isinstance(entry["descriptors"][descriptor_name], list):
-                if VERBOSITY_LEVEL > 0:
-                    print(
-                        f'Descriptor(s) of type "{descriptor_name}" are not in an array. You must provide descriptors in arrays, even if there is only one descriptor.'
-                    )
+                logger.debug(
+                    f'Descriptor(s) of type "{descriptor_name}" are not in an array. You must provide descriptors in arrays, even if there is only one descriptor.'
+                )
                 return False
 
             # iterate through every descriptor
             for descriptor_entry in entry["descriptors"][descriptor_name]:
                 if not isinstance(descriptor_entry, dict):
-                    if VERBOSITY_LEVEL > 0:
-                        print(
-                            f"The format of a {descriptor_name} descriptor is invalid."
-                        )
+                    logger.debug(
+                        f"The format of a {descriptor_name} descriptor is invalid."
+                    )
                     return False
 
                 if not check_item(descriptor_entry, table_info["descriptors"][descriptor_name]["schema"]):  # type: ignore
-                    if VERBOSITY_LEVEL > 0:
-                        print(
-                            f"A {descriptor_name} descriptor does not conform to the descriptor schema."
-                        )
+                    logger.debug(
+                        f"A {descriptor_name} descriptor does not conform to the descriptor schema."
+                    )
                     return False
 
     return True
@@ -294,17 +283,15 @@ def check_item(
         if column_name.endswith("_comments"):
             # check if this column is allowed to have comments
             if not schema[column_name[:-9]].get("comments", False):
-                if VERBOSITY_LEVEL > 0:
-                    print(
-                        f"Comments column {column_name} is related to a column that does not have commenting enabled."
-                    )
+                logger.debug(
+                    f"Comments column {column_name} is related to a column that does not have commenting enabled."
+                )
                 return False
 
             if not DATATYPE_CHECK["str"](data[display_column_name]):
-                if VERBOSITY_LEVEL > 0:
-                    print(
-                        f"Comments column {column_name} must contain a string comment."
-                    )
+                logger.debug(
+                    f"Comments column {column_name} must contain a string comment."
+                )
                 return False
             continue
 
@@ -314,31 +301,27 @@ def check_item(
                 schema[column_name[: -len("_latlong_accuracy")]]["datatype"]
                 != "geodetic point"
             ):
-                if VERBOSITY_LEVEL > 0:
-                    print(
-                        f"Column {column_name[:-len("_latlong_accuracy")]} is not a geodetic point and therefore cannot have an altitude accuracy."
-                    )
+                logger.debug(
+                    f"Column {column_name[:-len("_latlong_accuracy")]} is not a geodetic point and therefore cannot have an altitude accuracy."
+                )
                 return False
 
             if not DATATYPE_CHECK["float"](data[display_column_name]):
-                if VERBOSITY_LEVEL > 0:
-                    print(
-                        f"Invalid datatype for column {display_column_name}. Expected a float."
-                    )
+                logger.debug(
+                    f"Invalid datatype for column {display_column_name}. Expected a float."
+                )
                 return False
             continue
 
         if column_name.endswith("_altitude"):
             if schema[column_name[: -len("_altitude")]]["datatype"] != "geodetic point":
-                if VERBOSITY_LEVEL > 0:
-                    print(
-                        f"Column {column_name[:-len("_altitude")]} is not a geodetic point and therefore cannot have an altitude."
-                    )
+                logger.debug(
+                    f"Column {column_name[:-len("_altitude")]} is not a geodetic point and therefore cannot have an altitude."
+                )
                 if not DATATYPE_CHECK["float"](data[display_column_name]):
-                    if VERBOSITY_LEVEL > 0:
-                        print(
-                            f"Invalid datatype for column {display_column_name}. Expected a float."
-                        )
+                    logger.debug(
+                        f"Invalid datatype for column {display_column_name}. Expected a float."
+                    )
                 return False
             continue
 
@@ -347,40 +330,35 @@ def check_item(
                 schema[column_name[: -len("_altitude_accuracy")]]["datatype"]
                 != "geodetic point"
             ):
-                if VERBOSITY_LEVEL > 0:
-                    print(
-                        f"Column {column_name[:-len("_altitude_accuracy")]} is not a geodetic point and therefore cannot have an altitude accuracy."
-                    )
+                logger.debug(
+                    f"Column {column_name[:-len("_altitude_accuracy")]} is not a geodetic point and therefore cannot have an altitude accuracy."
+                )
                 if not DATATYPE_CHECK["float"](data[display_column_name]):
-                    if VERBOSITY_LEVEL > 0:
-                        print(
-                            f"Invalid datatype for column {display_column_name}. Expected a float."
-                        )
+                    logger.debug(
+                        f"Invalid datatype for column {display_column_name}. Expected a float."
+                    )
                 return False
             continue
 
         # mostly ignore primary_tag because store_entry will be responsible for validating primary_tag's value.
         if column_name == "primary_tag":
             if not DATATYPE_CHECK["str"](data[display_column_name]):
-                if VERBOSITY_LEVEL > 0:
-                    print("The primary tag column does not have a non-empty tag.")
+                logger.debug("The primary tag column does not have a non-empty tag.")
                 return False
             continue
 
         # check if this is a valid column
         if not column_name in schema:
-            if VERBOSITY_LEVEL > 0:
-                print(f'Column "{column_name}" is not within the table\'s schema.')
+            logger.debug(f'Column "{column_name}" is not within the table\'s schema.')
             return False
 
         # check if the datatype is correct
         if not DATATYPE_CHECK[schema[column_name]["datatype"]](
             data[display_column_name]
         ):
-            if VERBOSITY_LEVEL > 0:
-                print(
-                    f"Bad datatype for column {display_column_name}. Expected {schema[column_name]["datatype"]}."
-                )
+            logger.debug(
+                f"Bad datatype for column {display_column_name}. Expected {schema[column_name]["datatype"]}."
+            )
             return False
 
         # @TODO min/max, etc. checks
@@ -392,8 +370,7 @@ def check_item(
                 not column_name in data
                 and not schema[column_name].get("optional", False) is True
             ):
-                if VERBOSITY_LEVEL > 0:
-                    print(f"Column {column_name} not found inside the data.")
+                logger.debug(f"Column {column_name} not found inside the data.")
                 return False
 
         # do not check for comments because they are NULLable anyways
@@ -416,15 +393,13 @@ def check_tags(tags: List[str], database_name: str, table_name: str) -> bool:
 
     for tag_id in tags:
         if not tag_id.isdigit():
-            if VERBOSITY_LEVEL > 0:
-                print(
-                    f'Tag "{tag_id}" is invalid. Tag IDs must be provided rather than tag names.'
-                )
+            logger.debug(
+                f'Tag "{tag_id}" is invalid. Tag IDs must be provided rather than tag names.'
+            )
             return False
 
         if int(tag_id) not in tags_schema:
-            if VERBOSITY_LEVEL > 0:
-                print(f'Tag ID "{tag_id}" was not found.')
+            logger.debug(f'Tag ID "{tag_id}" was not found.')
             return False
 
         tags_schema.remove(int(tag_id))

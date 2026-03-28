@@ -2,10 +2,16 @@ FROM python:3.14.0-slim-bookworm
 WORKDIR /apps/sync
 
 # create non-root user
-RUN useradd -m app
+RUN groupadd -g 2523 Wywy-Website
+RUN useradd -m app -g 2523 -u 25232
 
 # populate files
-COPY --chown=app:app ./apps/sync .
+COPY --chown=sappync:app ./apps/sync .
+
+# prepare logging directory
+RUN mkdir -p /var/lib/Wywy-Website/cache
+RUN chown app /var/lib/Wywy-Website/cache
+RUN chmod 700 /var/lib/Wywy-Website/cache
 
 # install python packages
 RUN apt-get update && apt-get install -y --no-install-recommends \
