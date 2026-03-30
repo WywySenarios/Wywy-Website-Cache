@@ -22,7 +22,7 @@ services:
       database:
         condition: service_healthy
     volumes:
-      - ${UNIVERSAL_CONFIG_DIR}/config.yml:/apps/create_tables/config.yml
+      - ${UNIVERSAL_CONFIG_DIR}/config.yml:/home/create_tables/config.yml
       - /var/log/Wywy-Website/cache:/var/log/Wywy-Website/create_tables
 
   sync:
