@@ -47,7 +47,3 @@ services:
 # @TODO determine if SQL receptionist network needs to be added
 networks:
   default: {}
-
-secrets:
-  admin:
-    file: ${SECRETS_DIR}/admin.txt
