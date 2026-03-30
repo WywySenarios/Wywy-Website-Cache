@@ -51,6 +51,7 @@ services:
     volumes:
       - ./../apps/sync:/apps/sync
       - ${UNIVERSAL_CONFIG_DIR}/config.yml:/home/wywy/config.yml
+      - /var/lib/Wywy-Website/cache:/var/lib/Wywy-Website/cache
       - /var/log/Wywy-Website/cache:/var/log/Wywy-Website/cache
     depends_on:
       database:
