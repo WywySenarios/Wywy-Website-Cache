@@ -1,9 +1,11 @@
 FROM python:3.14.0-slim-bookworm
 WORKDIR /home/wywy
 
+ARG USER_ID
+
 # create non-root user
 RUN groupadd -g 2523 Wywy-Website
-RUN useradd -m /home/wywy -g 2523 -u ${USER_ID}
+RUN useradd -m -d /home/wywy -g Wywy-Website -u ${USER_ID} wywy
 
 # populate files
 COPY --chown=wywy:Wywy-Website ./apps/sync /home/wywy
