@@ -23,6 +23,10 @@ services:
 
   # @TODO secrets for db authentication
 
+secrets:
+  wywywebsite-cache-cloudflared-cloudflare:
+    file: ${SECRETS_DIR}/cache/cloudflared-cloudflare-token.txt
+
 networks:
   cloudflared:
     name: cloudflared
