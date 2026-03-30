@@ -1,0 +1,88 @@
+name: cache
+
+services:
+  create_tables:
+    tty: true
+    working_dir: /apps/create_tables
+    build:
+      context: ../
+      dockerfile: apps/create_tables/Dockerfile
+      args:
+        CONFIG_PATH: ${UNIVERSAL_CONFIG_DIR}/config.yml
+        USER_ID: ${USER_ID}
+    env_file:
+      - path: ${UNIVERSAL_CONFIG_DIR}/.env
+        required: true
+      - path: ${UNIVERSAL_CONFIG_DIR}/cache/.env
+        required: true
+    environment:
+      SERVICE_NAME: cache
+      DATABASE_PORT: 5432
+    depends_on:
+      database:
+        condition: service_healthy
+    volumes:
+      - ${UNIVERSAL_CONFIG_DIR}/config.yml:/apps/create_tables/config.yml
+      - /var/log/Wywy-Website/cache:/var/log/Wywy-Website/create_tables
+
+  sync:
+    container_name: sync
+    tty: true
+    working_dir: /apps/sync
+    build:
+      context: ../
+      dockerfile: apps/sync/Dockerfile
+      args:
+        CONFIG_PATH: ${UNIVERSAL_CONFIG_DIR}/config.yml
+        USER_ID: ${USER_ID}
+    env_file:
+      - path: ${UNIVERSAL_CONFIG_DIR}/.env
+        required: true
+      - path: ${UNIVERSAL_CONFIG_DIR}/cache/.env
+        required: true
+    environment:
+      - POSTGRES_PASSWORD=${DATABASE_PASSWORD}
+      - POSTGRES_USER=${DATABASE_USERNAME}
+      - POSTGRES_PORT=5432
+    secrets:
+      - admin
+    ports:
+      - 8000:8000
+    volumes:
+      - ./../apps/sync:/apps/sync
+      - ${UNIVERSAL_CONFIG_DIR}/config.yml:/home/wywy/config.yml
+      - /var/log/Wywy-Website/cache:/var/log/Wywy-Website/cache
+    depends_on:
+      database:
+        condition: service_healthy
+
+  # @TODO secrets for db authentication
+  database:
+    build:
+      context: ../
+      dockerfile: apps/postgres/Dockerfile
+    restart: always
+    env_file:
+      - path: ${UNIVERSAL_CONFIG_DIR}/.env
+        required: true
+      - path: ${UNIVERSAL_CONFIG_DIR}/cache/.env
+        required: true
+    environment:
+      POSTGRES_PASSWORD: ${DATABASE_PASSWORD}
+      POSTGRES_USER: ${DATABASE_USERNAME}
+      PGDATA: /var/lib/postgresql/data
+    ports:
+      - ${DATABASE_PORT}:5432
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "${DATABASE_USERNAME}"]
+      interval: 5m
+      timeout: 5s
+      start_period: 3s
+      retries: 10
+    volumes:
+      - ${DATA_DIR}/cache/postgres:/var/lib/postgresql/data
+    shm_size: 128mb
+
+secrets:
+  admin:
+    file: ${SECRETS_DIR}/admin.txt
