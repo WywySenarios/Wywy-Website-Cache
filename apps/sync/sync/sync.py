@@ -48,6 +48,7 @@ def prepare_payload(
     table_name: str,
     parent_table_name: str,
     table_type: str,
+    remote_id: str | None = None,
 ) -> Tuple[str, dict[str, Any]] | None:
     id_column_name: str = "id"
     tagging: bool = False
@@ -140,51 +141,10 @@ def prepare_payload(
             payload[k] = f"'{v.removeprefix("'").removesuffix("'")}'"
 
     # remove numerical id because the sql-receptionist will take care of that.
-    if "id" in payload:
-        del payload["id"]
-
-    # status: None | Literal["updated", "failed", "anomalous", "added"] = None
-
-    # if there isn't a status yet,
-    # if status is None:
-    #     # correct the foreign key to the master database's key ids. If those key IDs are not yet available, abort.
-    #     try:
-    #         match (table_type):
-    #             case "tag_aliases":
-    #                 update_foreign_key(
-    #                     payload,
-    #                     database_name,
-    #                     f"{parent_table_name}_tag_names",
-    #                     "tag_id",
-    #                     target_type=int,
-    #                 )
-    #             case "tag_groups":
-    #                 update_foreign_key(
-    #                     payload,
-    #                     database_name,
-    #                     f"{parent_table_name}_tag_names",
-    #                     "tag_id",
-    #                     target_type=int,
-    #                 )
-    #             case "tags":
-    #                 update_foreign_key(
-    #                     payload,
-    #                     database_name,
-    #                     f"{parent_table_name}_tag_names",
-    #                     "tag_id",
-    #                     target_type=int,
-    #                 )
-    #                 update_foreign_key(
-    #                     payload,
-    #                     database_name,
-    #                     parent_table_name,
-    #                     "entry_id",
-    #                     target_type=int,
-    #                 )
-    #             case _:
-    #                 pass
-    #     except RuntimeError:
-    #         status = "failed"
+    if remote_id is None:
+        del payload[id_column_name]
+    else:
+        payload[id_column_name] = remote_id
 
     return (endpoint, payload)
 
@@ -193,7 +153,7 @@ def sync() -> None:
     with psycopg.connect(**CONN_CONFIG, dbname="info") as info_conn:
         # select all targets that need syncing (failed, not synced yet (NULL)) (do not select mismatch for now)
         targets_cur = info_conn.execute(
-            "SELECT id, table_name, parent_table_name, table_type, database_name, entry_id, status FROM sync_status WHERE status IN ('failed') OR status IS NULL;"
+            "SELECT id, table_name, parent_table_name, table_type, database_name, entry_id, remote_id FROM sync_status WHERE status NOT IN ('updated', 'anomalous');"
         )
 
         num_successes = 0
@@ -206,16 +166,21 @@ def sync() -> None:
             database_name: str = target[4]
             target_id: str = target[5]
 
-            data = prepare_payload(
-                target_id, database_name, table_name, parent_table_name, table_type
-            )
-
             # @TODO check if the target already exists
 
-            status: None | Literal["updated", "failed", "anomalous", "added"] = None
+            status: None | Literal["modified", "updated", "failed", "anomalous"] = None
             endpoint = None
             payload = None
-            remote_id: int | str | None = None
+            remote_id: int | str | None = target[6]
+
+            data = prepare_payload(
+                target_id,
+                database_name,
+                table_name,
+                parent_table_name,
+                table_type,
+                remote_id=target[6],
+            )
 
             if data is None:
                 status = "failed"
@@ -274,7 +239,7 @@ def sync() -> None:
 
                         if not remote_id:
                             raise ValueError("remote_id is not valid.")
-                        status = "added"
+                        status = "updated"
                 except RuntimeError:
                     status = "failed"
                 except (requests.HTTPError, requests.exceptions.RequestException):
@@ -282,10 +247,10 @@ def sync() -> None:
                 except ValueError:
                     status = "anomalous"
                 else:
-                    status = "added"
+                    status = "updated"
 
             match (status):
-                case "added":
+                case "updated":
                     num_successes += 1
                 case _:
                     num_failures += 1
