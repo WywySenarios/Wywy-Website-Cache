@@ -5,7 +5,7 @@ from django.http import HttpRequest, HttpResponse, HttpResponseBadRequest, JsonR
 from django.views.decorators.csrf import ensure_csrf_cookie, get_token
 from schema import databases
 from typing import Any
-from Wywy_Website_Types import DictTableInfo
+from wywy_website_types import DictTableInfo
 from config import CONFIG
 
 from schema import check_item
