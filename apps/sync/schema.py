@@ -3,7 +3,7 @@ import logging
 import re
 from utils import to_lower_snake_case
 from constants import CONN_CONFIG
-from Wywy_Website_Types import (
+from wywy_website_types import (
     Datatype,
     DictDatabaseInfo,
     DictTableInfo,

@@ -2,7 +2,7 @@ import logging
 import psycopg
 from psycopg import sql, Connection
 from typing import Any, List, TypedDict
-from Wywy_Website_Types import EntryData, DictSchema
+from wywy_website_types import EntryData, DictSchema
 from constants import CONN_CONFIG
 
 logger = logging.getLogger("database")

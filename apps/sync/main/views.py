@@ -8,7 +8,7 @@ from django.http import (
     HttpResponseForbidden,
 )
 from typing import List
-from Wywy_Website_Types import DictTableInfo, Entry, EntryTableData
+from wywy_website_types import DictTableInfo, Entry, EntryTableData
 import json
 import psycopg
 from psycopg import sql
