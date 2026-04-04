@@ -105,7 +105,10 @@ def index(request: HttpRequest) -> HttpResponse:
         table: DictTableInfo = databases[database_name][table_name]
 
         # load in body
-        data = json.loads(request.body)
+        try:
+            data = json.loads(request.body)
+        except json.JSONDecodeError as e:
+            return HttpResponseBadRequest(f"Invalid JSON: {e}")
 
         if not data or "data" not in data:
             return HttpResponseBadRequest("No data supplied.")

@@ -65,7 +65,10 @@ def index(request: HttpRequest) -> HttpResponse:
         command = url_chunks[3]
 
         # make sure the body has content
-        data = json.loads(request.body)
+        try:
+            data = json.loads(request.body)
+        except json.JSONDecodeError as e:
+            return HttpResponseBadRequest(f"Invalid JSON: {e}")
         if not data:
             return HttpResponseBadRequest("Empty or invalid body.")
 
