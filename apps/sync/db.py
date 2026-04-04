@@ -2,7 +2,7 @@ import logging
 import psycopg
 from psycopg import sql, Connection
 from typing import Any, List, TypedDict
-from wywy_website_types import EntryData, DictSchema
+from wywy_website_types import Entry, DictSchema
 from constants import CONN_CONFIG
 
 logger = logging.getLogger("database")
@@ -32,7 +32,7 @@ def get_remote_id(
 
 
 def update_foreign_key(
-    entry: EntryData,
+    entry: Entry,
     database_name: str,
     table_name: str,
     target: str,
@@ -127,7 +127,7 @@ class DecomposedEntry(TypedDict):
 
 
 def decompose_entry(
-    item: EntryData, schema: DictSchema, tagging: bool = False
+    item: Entry, schema: DictSchema, tagging: bool = False
 ) -> DecomposedEntry:
     """Decomposes an entry into columns and values based on the given schema.
 

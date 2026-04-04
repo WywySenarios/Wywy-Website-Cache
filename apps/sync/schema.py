@@ -8,7 +8,6 @@ from wywy_website_types import (
     DictDatabaseInfo,
     DictTableInfo,
     Entry,
-    EntryData,
     DictSchema,
 )
 from config import CONFIG
@@ -170,10 +169,6 @@ def check_entry(entry: Entry, database_name: str, table_info: DictTableInfo) -> 
         bool: Whether or not the given entry conforms to the table schema.
     """
 
-    if not "data" in entry or not check_item(entry["data"], table_info["schema"]):
-        logger.debug("There is no data or the data is in an unexpected format.")
-        return False
-
     # @TODO check tags
     if (
         "tagging" in table_info and table_info["tagging"] == True
@@ -183,27 +178,6 @@ def check_entry(entry: Entry, database_name: str, table_info: DictTableInfo) -> 
             logger.debug(
                 f"Tagging is enabled on table {table_info["tableName"]}. You must provide a primary tag."
             )
-
-        # ensure that secondary tags are declared
-        if "tags" not in entry:
-            logger.debug(
-                f"Tagging is enabled on table {table_info["tableName"]}. You must give additional secondary tags or declare that there are none by passing in an empty array."
-            )
-            return False
-
-        # validate typing of supplied information
-        if not isinstance(entry["tags"], list):
-            logger.debug("An array of tags must be provided. This array can be empty.")
-            return False
-
-        # validate the tags
-        if not check_tags(
-            [entry["data"]["primary_tag"]] + entry["tags"],
-            database_name,
-            table_info["tableName"],
-        ):
-            logger.debug("Invalid tags.")
-            return False
     # if tagging is disabled, ensure that there are no tags
     else:
         if "primary_tag" in entry["data"]:
@@ -212,59 +186,14 @@ def check_entry(entry: Entry, database_name: str, table_info: DictTableInfo) -> 
             )
             return False
 
-        if "tags" in entry:
-            logger.debug(
-                f"Tagging is disabled on table {table_info["tableName"]}. You cannot supply secondary tags."
-            )
-            return False
-
-    # check descriptors
-    # check if the descriptors exist when they should.
-    if not (
-        (not not ("descriptors" in entry))
-        == (not not ("descriptors" in table_info and table_info["descriptors"]))
-    ):
+    if not "data" in entry or not check_item(entry["data"], table_info["schema"]):
+        logger.debug("There is no data or the data is in an unexpected format.")
         return False
-
-    if "descriptors" in entry:
-        if "descriptors" not in table_info:
-            logger.debug(f"This table has no descriptors.")
-            return False
-
-        # check each descriptor individually
-        # iterate through each descriptor category
-        for descriptor_name in entry["descriptors"]:
-            # verify if this descriptor is in the config
-            if not descriptor_name in table_info["descriptors"]:
-                logger.debug(f'Descriptor type "{descriptor_name}" was not found.')
-                return False
-
-            if not isinstance(entry["descriptors"][descriptor_name], list):
-                logger.debug(
-                    f'Descriptor(s) of type "{descriptor_name}" are not in an array. You must provide descriptors in arrays, even if there is only one descriptor.'
-                )
-                return False
-
-            # iterate through every descriptor
-            for descriptor_entry in entry["descriptors"][descriptor_name]:
-                if not isinstance(descriptor_entry, dict):
-                    logger.debug(
-                        f"The format of a {descriptor_name} descriptor is invalid."
-                    )
-                    return False
-
-                if not check_item(descriptor_entry, table_info["descriptors"][descriptor_name]["schema"]):  # type: ignore
-                    logger.debug(
-                        f"A {descriptor_name} descriptor does not conform to the descriptor schema."
-                    )
-                    return False
 
     return True
 
 
-def check_item(
-    data: EntryData, schema: DictSchema, require_inclusion: bool = True
-) -> bool:
+def check_item(data: Entry, schema: DictSchema, require_inclusion: bool = True) -> bool:
     """Checks the given data against the given schema.
 
     Args:
@@ -378,7 +307,7 @@ def check_item(
     return True
 
 
-def check_tags(tags: List[str], database_name: str, table_name: str) -> bool:
+def check_tags(tags: List[Any], database_name: str, table_name: str) -> bool:
     """Checks whether or not all the given tags are unique and valid.
 
     Args:
@@ -392,10 +321,10 @@ def check_tags(tags: List[str], database_name: str, table_name: str) -> bool:
     tags_schema = set(get_all_tags(database_name, table_name))
 
     for tag_id in tags:
-        if not tag_id.isdigit():
-            logger.debug(
-                f'Tag "{tag_id}" is invalid. Tag IDs must be provided rather than tag names.'
-            )
+        if not isinstance(tag_id, int) and (
+            not isinstance(tag_id, str) or not tag_id.isdigit()
+        ):
+            logger.debug(f'Tag "{tag_id}" is invalid.')
             return False
 
         if int(tag_id) not in tags_schema:

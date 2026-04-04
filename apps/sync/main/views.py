@@ -8,7 +8,7 @@ from django.http import (
     HttpResponseForbidden,
     HttpResponseNotAllowed,
 )
-from typing import List
+from typing import List, Any, cast
 from wywy_website_types import DictTableInfo, Entry, EntryTableData
 import json
 import psycopg
@@ -17,7 +17,7 @@ from constants import CONN_CONFIG
 import datetime
 
 from utils import to_lower_snake_case, chunkify_url
-from schema import check_entry, databases
+from schema import check_entry, check_item, check_tags, databases
 from sync.sync import queue_sync
 from db import store_entry, decompose_entry
 
@@ -114,54 +114,86 @@ def index(request: HttpRequest) -> HttpResponse:
         except json.JSONDecodeError as e:
             return HttpResponseBadRequest(f"Invalid JSON: {e}")
 
-        if not data or "data" not in data:
+        if not data:
             return HttpResponseBadRequest("No data supplied.")
 
-        if not isinstance(data["data"], dict):
-            return HttpResponse("The data section must be composed of JSON objects.")
+        if not isinstance(data, dict):
+            return HttpResponseBadRequest(
+                "The data section must be composed of JSON objects."
+            )
 
-        # make a copy of data with snake_cased keys
-        f_data: Entry = {
-            "data": {
-                to_lower_snake_case(key): value for key, value in data["data"].items()
-            }
-        }
+        data = cast(dict[str, Any], data)
+        entry: Entry
+        tags: list[str] | None = None
+        descriptors: dict[str, list[dict[str, Any]]] | None = None
 
-        if "tags" in data:
-            if not isinstance(data["tags"], list):
-                return HttpResponseBadRequest("Tags must be supplied in an array.")
+        data_data = data.get("data", None)
 
-            f_data["tags"] = data["tags"]
+        # determine if we are doing a batch insert (i.e. form submission) or a single entry insert (e.g. editing a record)
+        # remember to cast keys to snake case
+        if isinstance(data_data, dict):
+            data_data = cast(Entry, data_data)
+            entry = {}
+            for key, value in data_data.items():
+                entry[to_lower_snake_case(key)] = value
 
-        if "descriptors" in data:
-            if not isinstance(data["descriptors"], dict):
-                return HttpResponseBadRequest(
-                    "Descriptors must be supplied in a JSON object with the key as the descriptor type and the value as an array of descriptors of the corresponding type. The arrays may be empty."
-                )
+            if "tags" in data:
+                if not table.get("tagging", False):
+                    return HttpResponseBadRequest("Tagging is disabled.")
 
-            try:
-                f_data["descriptors"] = {
-                    to_lower_snake_case(descriptor_type): list(
-                        map(
-                            lambda x: (
-                                {
-                                    to_lower_snake_case(key): value
-                                    for key, value in x.items()
-                                }
-                                if isinstance(x, dict)
-                                else None
-                            ),
-                            descriptor_array,
+                if not isinstance(data["tags"], list):
+                    return HttpResponseBadRequest("Tags must be supplied in an array.")
+
+                if not check_tags(
+                    cast(list[Any], data["tags"]), database_name, table_name
+                ):
+                    return HttpResponseBadRequest("Invalid tags.")
+
+                tags = cast(list[str], data["tags"])
+
+                if "descriptors" in data:
+                    descriptors = {}
+                    data_descriptors = data["descriptors"]
+                    if not "descriptors" in table:
+                        return HttpResponseBadRequest("This table has no descriptors.")
+
+                    if not isinstance(data_descriptors, dict):
+                        return HttpResponseBadRequest(
+                            "Descriptors must be supplied in a JSON object with the key as the descriptor type and the value as an array of descriptors of the corresponding type. The arrays may be empty."
                         )
-                    )
-                    for descriptor_type, descriptor_array in data["descriptors"].items()
-                }
-            except:
-                return HttpResponseBadRequest(
-                    "Failed to parse the supplied descriptors."
-                )
 
-        if not check_entry(f_data, database_name, table):
+                    data_descriptors = cast(dict[str, Any], data_descriptors)
+                    for descriptor_type, descriptor_array in data_descriptors.items():
+                        if not isinstance(descriptor_array, list):
+                            return HttpResponseBadRequest(
+                                "Descriptors must be supplied in arrays."
+                            )
+
+                        descriptor_name = to_lower_snake_case(descriptor_type)
+
+                        if descriptor_name not in table["descriptors"]:
+                            return HttpResponseBadRequest(
+                                f"Descriptor type {descriptor_name} was not found."
+                            )
+
+                        for descriptor_entry in cast(list[Any], descriptor_array):
+                            if not isinstance(descriptor_array, dict):
+                                return HttpResponseBadRequest(
+                                    "Descriptor entries must be JSON objects."
+                                )
+
+                            check_item(
+                                cast(dict[str, Any], descriptor_entry),
+                                table["descriptors"][descriptor_name]["schema"],
+                            )
+
+                        descriptors[to_lower_snake_case(descriptor_type)] = cast(
+                            list[dict[str, Any]], descriptor_array
+                        )
+        else:
+            entry = data
+
+        if not check_entry(entry, database_name, table):
             return HttpResponseBadRequest(
                 "The given entry does not conform to the schema."
             )
@@ -183,15 +215,15 @@ def index(request: HttpRequest) -> HttpResponse:
                     table_name,
                     "data",
                     **decompose_entry(
-                        f_data["data"],
+                        entry,
                         table["schema"],
                         tagging=("tagging" in table and table["tagging"] == True),
                     ),
                 )
 
                 # tags
-                if "tags" in f_data:
-                    for tag_id in f_data["tags"]:
+                if tags is not None:
+                    for tag_id in tags:
                         store_entry(
                             data_conn,
                             info_conn,
@@ -204,12 +236,11 @@ def index(request: HttpRequest) -> HttpResponse:
                         )
 
                 # descriptors
-                if "descriptors" in f_data:
-                    for descriptor_name in f_data["descriptors"]:
-                        for descriptor_info in f_data["descriptors"][descriptor_name]:
-                            if "descriptors" not in table:
-                                raise ValueError("Descriptors not in table?")
-
+                if descriptors is not None:
+                    for descriptor_name, descriptor_array in descriptors.items():
+                        if "descriptors" not in table:
+                            raise ValueError("Descriptors not in table?")
+                        for descriptor_entry in descriptor_array:
                             store_entry(
                                 data_conn,
                                 info_conn,
@@ -218,7 +249,7 @@ def index(request: HttpRequest) -> HttpResponse:
                                 table_name,
                                 "descriptors",
                                 **decompose_entry(
-                                    descriptor_info,
+                                    descriptor_entry,
                                     table["descriptors"][descriptor_name]["schema"],
                                 ),
                             )
