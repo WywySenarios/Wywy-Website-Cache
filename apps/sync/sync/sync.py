@@ -12,8 +12,12 @@ from psycopg.rows import dict_row
 from psycopg import sql
 from typing import List, Literal, Any, Tuple, cast
 
-from schema import databases
-from db import update_foreign_key, store_entry, construct_select_all_query
+from database.schema import databases
+from database.db import (
+    update_foreign_key,
+    store_entry,
+    construct_select_all_query,
+)
 
 logger = logging.getLogger("sync")
 

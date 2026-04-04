@@ -271,7 +271,7 @@ def check_item(
         for sub_column_suffix in (
             "_latlong_accuracy",
             "_altitude",
-            "altitude_accuracy",
+            "_altitude_accuracy",
         ):
             sub_column_name = column_name + sub_column_suffix
 
@@ -281,6 +281,8 @@ def check_item(
                         f"Bad datatype for column {column_name}. Expected a float."
                     )
                     return False
+
+                unchecked_columns.remove(sub_column_name)
 
         # comments
         if column_info.get("comments", False) is True:

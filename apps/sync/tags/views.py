@@ -11,10 +11,10 @@ from psycopg import sql
 from constants import CONN_CONFIG
 import json
 
-from schema import databases
+from database.schema import databases
 from utils import chunkify_url, to_lower_snake_case, remove_quotation
 from sync.sync import queue_sync
-from db import store_entry
+from database.db import store_entry
 
 
 # Create your views here.

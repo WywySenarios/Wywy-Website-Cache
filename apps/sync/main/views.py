@@ -17,9 +17,9 @@ from constants import CONN_CONFIG
 import datetime
 
 from utils import to_lower_snake_case, chunkify_url
-from schema import check_entry, check_item, check_tags, databases
+from database.schema import check_entry, check_item, check_tags, databases
 from sync.sync import queue_sync
-from db import store_entry, decompose_entry
+from database.db import store_entry, decompose_entry
 
 logger = logging.getLogger("database")
 

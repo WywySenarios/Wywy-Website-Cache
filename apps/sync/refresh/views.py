@@ -11,7 +11,7 @@ from wywy_website_types import DictTableInfo
 import psycopg
 
 from utils import to_lower_snake_case, chunkify_url
-from schema import databases
+from database.schema import databases
 from sync.sync import pull
 
 
