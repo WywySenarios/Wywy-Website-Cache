@@ -174,19 +174,19 @@ def check_entry(entry: Entry, database_name: str, table_info: DictTableInfo) -> 
         "tagging" in table_info and table_info["tagging"] == True
     ):  # if tagging is enabled,
         # ensure that there is a primary tag
-        if "primary_tag" not in entry["data"]:
+        if "primary_tag" not in entry:
             logger.debug(
                 f"Tagging is enabled on table {table_info["tableName"]}. You must provide a primary tag."
             )
     # if tagging is disabled, ensure that there are no tags
     else:
-        if "primary_tag" in entry["data"]:
+        if "primary_tag" in entry:
             logger.debug(
                 f"Tagging is disabled on table {table_info["tableName"]}. You cannot supply a primary tag."
             )
             return False
 
-    if not "data" in entry or not check_item(entry["data"], table_info["schema"]):
+    if not "data" in entry or not check_item(entry, table_info["schema"]):
         logger.debug("There is no data or the data is in an unexpected format.")
         return False
 
