@@ -28,11 +28,14 @@ SECRET_KEY = get_random_secret_key()
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEV: bool = environ.get("DEV", "false").lower() == "true"
-DEBUG = DEV
+DEBUG = environ.get("DEBUG", "false").lower() == "true"
 
 ALLOWED_HOSTS = [
     f".{environ["MAIN_DOMAIN"]}",
 ]
+
+if DEV:
+    ALLOWED_HOSTS.append("sync")
 
 # Application definition
 
