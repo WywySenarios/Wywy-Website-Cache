@@ -6,6 +6,7 @@ from django.http import (
     HttpResponseBadRequest,
     HttpResponseServerError,
     HttpResponseForbidden,
+    HttpResponseNotAllowed,
 )
 from typing import List
 from wywy_website_types import DictTableInfo, Entry, EntryTableData
@@ -93,7 +94,10 @@ def index(request: HttpRequest) -> HttpResponse:
         # return the data
         return JsonResponse(output)
 
-    if request.method == "POST" and request.content_type == "application/json":
+    if request.method == "POST":
+        if not request.content_type == "application/json":
+            return HttpResponseBadRequest("Expected JSON data.")
+
         # look for the target table
         url_chunks: List[str] = request.path.split("/")
         if len(url_chunks) != 4:
@@ -233,4 +237,4 @@ def index(request: HttpRequest) -> HttpResponse:
 
         return HttpResponse()
 
-    return JsonResponse({"detail": "csrf cookie set"})
+    return HttpResponseNotAllowed(permitted_methods=["GET", "POST"])
