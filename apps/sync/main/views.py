@@ -266,6 +266,6 @@ def index(request: HttpRequest) -> HttpResponse:
         # queue a sync
         queue_sync()
 
-        return HttpResponse()
+        return HttpResponse(entry_id)
 
     return HttpResponseNotAllowed(permitted_methods=["GET", "POST"])
