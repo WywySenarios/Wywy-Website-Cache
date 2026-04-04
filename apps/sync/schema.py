@@ -186,7 +186,7 @@ def check_entry(entry: Entry, database_name: str, table_info: DictTableInfo) -> 
             )
             return False
 
-    if not "data" in entry or not check_item(entry, table_info["schema"]):
+    if not check_item(entry, table_info["schema"]):
         logger.debug("There is no data or the data is in an unexpected format.")
         return False
 
