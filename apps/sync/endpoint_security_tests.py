@@ -12,7 +12,7 @@ def test_endpoint_security(test_object: TestCase, endpoint: str) -> None:
     test_object.assertEqual(
         response.status_code,
         400,
-        f"Invalid (origin-less) response did not receive response with status 400: {response.status_code}: {response.text}",
+        f"Invalid (origin-less) request did not receive response with status 400: {response.status_code}: {response.text}",
     )
 
     # is the endpoint secured with authentication?
