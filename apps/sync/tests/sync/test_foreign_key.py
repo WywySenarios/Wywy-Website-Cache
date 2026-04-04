@@ -2,9 +2,9 @@ import unittest
 import psycopg
 from psycopg.rows import dict_row
 from sync.sync import prepare_payload
-from generic_database_api.transformations.purge import purge_database
-from generic_database_api.transformations.populate import populate_transformation
-from generic_database_api.transformations.transform import TransformTargets
+from ..generic_database_api.transformations.purge import purge_database
+from ..generic_database_api.transformations.populate import populate_transformation
+from ..generic_database_api.transformations.transform import TransformTargets
 from constants import CONN_CONFIG
 from wywy_website_types.data import TableInfo
 from config import CONFIG
