@@ -170,9 +170,7 @@ def check_entry(entry: Entry, database_name: str, table_info: DictTableInfo) -> 
     """
 
     # @TODO check tags
-    if (
-        "tagging" in table_info and table_info["tagging"] == True
-    ):  # if tagging is enabled,
+    if table_info.get("tagging", False) is True:  # if tagging is enabled,
         # ensure that there is a primary tag
         if "primary_tag" not in entry:
             logger.debug(
@@ -186,123 +184,125 @@ def check_entry(entry: Entry, database_name: str, table_info: DictTableInfo) -> 
             )
             return False
 
-    if not check_item(entry, table_info["schema"]):
+    if not check_item(
+        entry,
+        table_info["schema"],
+        primary_tag=table_info.get("tagging", False),
+        id_column_name="id",
+    ):
         logger.debug("There is no data or the data is in an unexpected format.")
         return False
 
     return True
 
 
-def check_item(data: Entry, schema: DictSchema, require_inclusion: bool = True) -> bool:
+def check_item(
+    data: Entry,
+    schema: DictSchema,
+    require_inclusion: bool = True,
+    primary_tag: bool = False,
+    id_column_name: str | None = None,
+) -> bool:
     """Checks the given data against the given schema.
+
+    @TODO schema-defined value restrictions (e.g. min/max)
 
     Args:
         data (dict): The data to check.
         schema (dict): The schema to check against.
-        require_inclusion (bool): Whether or not each non-optional column must be present in the item for it to be valid.
+        require_inclusion (bool, optional): Whether or not each non-optional column must be present in the item for it to be valid. Defaults to True.
+        primary_tag (bool, optional): Whether or not to expect the primary_tag column. Defaults to False.
+        id_column_name (str | None, optional): The (snake case) name of the ID column that may or may not appear inside the data. The ID column will not be permitted or checked (and consumed) for if this attribute is set to None. Defaults to None.
 
     Returns:
         bool: Whether or not the data conforms to the schema.
     """
-    # check every item
-    for display_column_name in data:
-        column_name = to_lower_snake_case(display_column_name)
 
-        # special logic for comments
-        if column_name.endswith("_comments"):
-            # check if this column is allowed to have comments
-            if not schema[column_name[:-9]].get("comments", False):
-                logger.debug(
-                    f"Comments column {column_name} is related to a column that does not have commenting enabled."
-                )
-                return False
+    unchecked_columns = set(data.keys())
 
-            if not DATATYPE_CHECK["str"](data[display_column_name]):
-                logger.debug(
-                    f"Comments column {column_name} must contain a string comment."
-                )
-                return False
-            continue
-
-        # special logic for geodetic point accuracy columns
-        if column_name.endswith("_latlong_accuracy"):
-            if (
-                schema[column_name[: -len("_latlong_accuracy")]]["datatype"]
-                != "geodetic point"
-            ):
-                logger.debug(
-                    f"Column {column_name[:-len("_latlong_accuracy")]} is not a geodetic point and therefore cannot have an altitude accuracy."
-                )
-                return False
-
-            if not DATATYPE_CHECK["float"](data[display_column_name]):
-                logger.debug(
-                    f"Invalid datatype for column {display_column_name}. Expected a float."
-                )
-                return False
-            continue
-
-        if column_name.endswith("_altitude"):
-            if schema[column_name[: -len("_altitude")]]["datatype"] != "geodetic point":
-                logger.debug(
-                    f"Column {column_name[:-len("_altitude")]} is not a geodetic point and therefore cannot have an altitude."
-                )
-                if not DATATYPE_CHECK["float"](data[display_column_name]):
-                    logger.debug(
-                        f"Invalid datatype for column {display_column_name}. Expected a float."
-                    )
-                return False
-            continue
-
-        if column_name.endswith("_altitude_accuracy"):
-            if (
-                schema[column_name[: -len("_altitude_accuracy")]]["datatype"]
-                != "geodetic point"
-            ):
-                logger.debug(
-                    f"Column {column_name[:-len("_altitude_accuracy")]} is not a geodetic point and therefore cannot have an altitude accuracy."
-                )
-                if not DATATYPE_CHECK["float"](data[display_column_name]):
-                    logger.debug(
-                        f"Invalid datatype for column {display_column_name}. Expected a float."
-                    )
-                return False
-            continue
-
-        # mostly ignore primary_tag because store_entry will be responsible for validating primary_tag's value.
-        if column_name == "primary_tag":
-            if not DATATYPE_CHECK["str"](data[display_column_name]):
-                logger.debug("The primary tag column does not have a non-empty tag.")
-                return False
-            continue
-
-        # check if this is a valid column
-        if not column_name in schema:
-            logger.debug(f'Column "{column_name}" is not within the table\'s schema.')
+    # primary_tag
+    if primary_tag:
+        if not "primary_tag" in unchecked_columns:
+            logger.debug("Primary tag column not found inside the data.")
             return False
 
-        # check if the datatype is correct
-        if not DATATYPE_CHECK[schema[column_name]["datatype"]](
-            data[display_column_name]
-        ):
+        if not DATATYPE_CHECK["int"](data["primary_tag"]):
             logger.debug(
-                f"Bad datatype for column {display_column_name}. Expected {schema[column_name]["datatype"]}."
+                f"Bad datatype for the primary tag column. Expected an integer."
             )
             return False
 
-        # @TODO min/max, etc. checks
+        unchecked_columns.remove("primary_tag")
 
-    # check if all columns are present
-    if require_inclusion:
-        for column_name in schema:
+    # id column
+    if id_column_name is not None and id_column_name in unchecked_columns:
+        # assume the ID column is an integer. Otherwise, it should also be a part of the table schema.
+        if not DATATYPE_CHECK["int"](data[id_column_name]):
+            logger.debug(
+                f"Invalid datatype for column {id_column_name}. Expected a float."
+            )
+            return False
+
+        unchecked_columns.remove(id_column_name)
+
+    for column_info in schema.values():
+        column_name = to_lower_snake_case(column_info["name"])
+
+        # enforce inclusion
+        if not column_name in data:
             if (
-                not column_name in data
+                require_inclusion
                 and not schema[column_name].get("optional", False) is True
+                and not column_info["datatype"] == "geodetic point"
             ):
                 logger.debug(f"Column {column_name} not found inside the data.")
                 return False
 
-        # do not check for comments because they are NULLable anyways
+            continue
+
+        # datatype check
+        if not DATATYPE_CHECK[column_info["datatype"]](data[column_name]):
+            logger.debug(
+                f"Bad datatype for column {column_name}. Expected {column_info["datatype"]}."
+            )
+            return False
+
+        # geodetic point sub-columns
+        for sub_column_suffix in (
+            "_latlong_accuracy",
+            "_altitude",
+            "altitude_accuracy",
+        ):
+            sub_column_name = column_name + sub_column_suffix
+
+            if sub_column_name in data:
+                if not DATATYPE_CHECK["float"](data[sub_column_name]):
+                    logger.debug(
+                        f"Bad datatype for column {column_name}. Expected a float."
+                    )
+                    return False
+
+        # comments
+        if column_info.get("comments", False) is True:
+            # comments are optional
+            comments_data = data.get(f"{column_name}_comments", None)
+            if comments_data is not None and not DATATYPE_CHECK["str"](comments_data):
+                logger.debug(
+                    f"Comments column for {column_name} must contain a string comment."
+                )
+                return False
+
+        # consume the column
+        unchecked_columns.remove(column_name)
+
+    # check every item
+    for display_column_name in data:
+        column_name = to_lower_snake_case(display_column_name)
+
+    # check for errnoenous columns
+    if len(unchecked_columns) != 0:
+        logger.debug(f"Found extra erroneous columns: {unchecked_columns}.")
+        return False
 
     return True
 
