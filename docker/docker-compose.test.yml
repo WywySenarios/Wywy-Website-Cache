@@ -21,6 +21,8 @@ services:
       - POSTGRES_USER=${DATABASE_USERNAME}
       - POSTGRES_PORT=5432
       - DEV=TRUE
+      - DEBUG=FALSE
+      - TEST=TRUE
     secrets:
       - admin
     networks:

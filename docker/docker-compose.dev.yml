@@ -22,6 +22,7 @@ services:
         required: true
     environment:
       - DEV=TRUE
+      - DEBUG=FALSE
     networks:
       - wywy_website_master_database-sql_receptionist
       - default
