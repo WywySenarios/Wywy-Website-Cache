@@ -27,7 +27,7 @@ services:
       - default
     volumes:
       - ./../apps/sync:/apps/sync
-      - ${UNIVERSAL_CONFIG_DIR}/config.yml:/apps/sync/config.yml
+      - ${UNIVERSAL_CONFIG_DIR}/config.yml:/home/wywy/config.yml
     depends_on:
       sync:
         condition: service_started
