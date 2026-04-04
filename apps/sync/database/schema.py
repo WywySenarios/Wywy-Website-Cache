@@ -22,7 +22,7 @@ def is_geodetic_point(value: Any) -> bool:
     if not isinstance(value, str):
         return False
     matches = re.fullmatch(
-        r"POINT ?\((-?\d+(?:\.\d+)?) (-?\d+(?:\.\d+)?)\)",
+        r"\'POINT ?\((-?\d+(?:\.\d+)?) (-?\d+(?:\.\d+)?)\)\'",
         value,
     )
     if matches is None:

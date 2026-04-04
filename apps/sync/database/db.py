@@ -1,7 +1,7 @@
 import logging
 import psycopg
 from psycopg import sql, Connection
-from typing import Any, List, TypedDict
+from typing import Any, List, TypedDict, cast
 from wywy_website_types import Entry, DictSchema
 from constants import CONN_CONFIG
 
@@ -169,13 +169,15 @@ def decompose_entry(
         columns.append(column_name)
 
         if column_name in item:
-            values.append(item[column_name])
-
             # a special command needs to be added to INSERT a geodetic point
             match (schema[column_name]["datatype"]):
                 case "geodetic point":
+                    values.append(
+                        cast(str, item[column_name]).removeprefix("'").removesuffix("'")
+                    )
                     values_shapes.append(sql.SQL("ST_GeographyFromText(%s)"))
                 case _:
+                    values.append(item[column_name])
                     values_shapes.append(sql.Placeholder())
         elif schema[column_name]["optional"] is True:
             values_shapes.append(sql.SQL("NULL"))
