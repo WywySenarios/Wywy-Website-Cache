@@ -79,6 +79,9 @@ def prepare_payload(
         case "data":
             values: List[sql.Composable] = []
             conditions: List[sql.Composable] = []
+            # add ID column to the SELECT query. There is no need to account for the edge case where the ID column is a part of the schema.
+            values.append(id_column)
+
             if tagging:
                 conditions.append(
                     sql.SQL(
