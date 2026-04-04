@@ -118,7 +118,7 @@ def handle_insert_request(request: HttpRequest) -> HttpResponse:
     url_chunks: List[str] = chunkify_url(request.path)
     entry_info: DictTableInfo | DictDescriptorInfo
     match (len(url_chunks)):
-        case 3:  # .../main/[database_name]/[table_name]
+        case 3 | 4:  # .../main/[database_name]/[table_name]/[data]?
             database_name = to_lower_snake_case(url_chunks[1])
             table_name = to_lower_snake_case(url_chunks[2])
             target_table_name = table_name
@@ -129,6 +129,8 @@ def handle_insert_request(request: HttpRequest) -> HttpResponse:
                 return HttpResponseBadRequest(
                     f'Table "{database_name}/{table_name}" was not found.'
                 )
+            if len(url_chunks) == 4 and url_chunks[3] != "data":
+                return HttpResponseBadRequest(f"Bad target: {url_chunks[3]}")
             table: DictTableInfo = databases[database_name][table_name]
             entry_info = databases[database_name][table_name]
         case 5:  # .../main/[database_name]/[table_name]/descriptors/[descriptor_name]
