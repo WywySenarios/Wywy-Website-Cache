@@ -29,6 +29,8 @@ services:
       - ./../apps/sync:/apps/sync
       - ${UNIVERSAL_CONFIG_DIR}/config.yml:/apps/sync/config.yml
     depends_on:
+      sync:
+        condition: service_started
       create_tables:
         condition: service_completed_successfully
       database:
