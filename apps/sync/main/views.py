@@ -218,6 +218,7 @@ def index(request: HttpRequest) -> HttpResponse:
                         entry,
                         table["schema"],
                         tagging=("tagging" in table and table["tagging"] == True),
+                        id_column_name="id",
                     ),
                 )
 

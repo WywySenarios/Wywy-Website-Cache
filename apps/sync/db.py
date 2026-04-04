@@ -127,18 +127,22 @@ class DecomposedEntry(TypedDict):
 
 
 def decompose_entry(
-    item: Entry, schema: DictSchema, tagging: bool = False
+    item: Entry,
+    schema: DictSchema,
+    tagging: bool = False,
+    id_column_name: str | None = None,
 ) -> DecomposedEntry:
-    """Decomposes an entry into columns and values based on the given schema.
+    """Decomposes an entry into columns and values based on the given schema. Ignores erroneous columns.
 
     Args:
         item (dict): The entry to decompose.
         schema (dict): The schema that the entry should conform to.
         primary_column_name (str): The name of the primary column.
         tagging (bool, optional): Whether or not tagging is enabled. Defaults to False.
+        id_column_name (str | None, optional): Specify the id column name for inclusion if it is not a part of the schema. This function understands that the ID column is optional. Defaults to None.
 
     Raises:
-        ValueError: When there are missing columns. Ignores erroneous columns.
+        ValueError: When there are missing columns.
 
     Returns:
         Tuple[List[str], List[sql.Composeable], List[Any]]: The column names, the value_shapes, and the values.
@@ -146,6 +150,13 @@ def decompose_entry(
     columns: List[str] = []
     values_shapes: List[sql.Composable] = []
     values: List[Any] = []
+
+    if id_column_name is not None:
+        id = item.get(id_column_name, None)
+        if id is not None:
+            columns.append(id_column_name)
+            values.append(id)
+            values_shapes.append(sql.Placeholder())
 
     # check for primary tag column
     if tagging:
@@ -217,11 +228,19 @@ def store_entry(
 
     data_cur = data_conn.execute(
         sql.SQL(
-            "INSERT INTO {table} ({fields}) VALUES({values}) RETURNING {id_column};"
+            "INSERT INTO {table} ({fields}) VALUES({values}) ON CONFLICT ({id_column}) DO UPDATE SET {update_shape} RETURNING {id_column};"
         ).format(
             table=sql.Identifier(target_table_name),
             fields=sql.SQL(", ").join(map(sql.Identifier, columns)),
             values=values_shape,
+            update_shape=sql.SQL(", ").join(
+                map(
+                    lambda column_name: sql.SQL(
+                        "{column_name} = EXCLUDED.{column_name}"
+                    ).format(column_name=sql.Identifier(column_name)),
+                    columns,
+                )
+            ),
             id_column=sql.Identifier(id_column_name),
         ),
         (*values,),
