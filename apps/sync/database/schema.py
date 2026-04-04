@@ -7,6 +7,7 @@ from wywy_website_types import (
     Datatype,
     DictDatabaseInfo,
     DictTableInfo,
+    DictDescriptorInfo,
     Entry,
     DictSchema,
 )
@@ -157,37 +158,49 @@ def get_all_tags(database_name: str, parent_table_name: str) -> list[int]:
             return [row[0] for row in cur.fetchall()]
 
 
-def check_entry(entry: Entry, database_name: str, table_info: DictTableInfo) -> bool:
+def check_entry(
+    entry: Entry, database_name: str, entry_info: DictTableInfo | DictDescriptorInfo
+) -> bool:
     """Checks the given entry against the given table schema.
 
     Args:
         entry (dict): The entry to check.
         database_name (str): The name of the database that contains the respective table.
-        table_info (dict): The table schema to check against.
+        entry_info (dict): The table or descriptor schema to check against.
 
     Returns:
         bool: Whether or not the given entry conforms to the table schema.
     """
 
     # @TODO check tags
-    if table_info.get("tagging", False) is True:  # if tagging is enabled,
+    if entry_info.get("tagging", False) is True:  # if tagging is enabled,
         # ensure that there is a primary tag
         if "primary_tag" not in entry:
-            logger.debug(
-                f"Tagging is enabled on table {table_info["tableName"]}. You must provide a primary tag."
-            )
+            if "tableName" in entry_info:
+                logger.debug(
+                    f"Tagging is enabled on table {entry_info["tableName"]}. You must provide a primary tag."
+                )
+            else:
+                logger.debug(
+                    f"Descriptors do not have tags. You cannot supply a primary tag."
+                )
     # if tagging is disabled, ensure that there are no tags
     else:
         if "primary_tag" in entry:
-            logger.debug(
-                f"Tagging is disabled on table {table_info["tableName"]}. You cannot supply a primary tag."
-            )
+            if "tableName" in entry_info:
+                logger.debug(
+                    f"Tagging is disabled on table {entry_info["tableName"]}. You cannot supply a primary tag."
+                )
+            else:
+                logger.debug(
+                    f"Descriptors do not have tags. You cannot supply a primary tag."
+                )
             return False
 
     if not check_item(
         entry,
-        table_info["schema"],
-        primary_tag=table_info.get("tagging", False),
+        entry_info["schema"],
+        primary_tag=entry_info.get("tagging", False),
         id_column_name="id",
     ):
         logger.debug("There is no data or the data is in an unexpected format.")

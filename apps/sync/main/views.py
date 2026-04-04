@@ -9,7 +9,7 @@ from django.http import (
     HttpResponseNotAllowed,
 )
 from typing import List, Any, cast
-from wywy_website_types import DictTableInfo, Entry, EntryTableData
+from wywy_website_types import DictTableInfo, DictDescriptorInfo, Entry, EntryTableData
 import json
 import psycopg
 from psycopg import sql
@@ -115,14 +115,51 @@ def handle_insert_request(request: HttpRequest) -> HttpResponse:
         HttpResponse: The response to the client.
     """
     # look for the target table
-    url_chunks: List[str] = request.path.split("/")
-    if len(url_chunks) != 4:
-        return HttpResponseBadRequest("Bad POST URL.")
-    database_name = to_lower_snake_case(url_chunks[2])
-    table_name = to_lower_snake_case(url_chunks[3])
-    if not database_name in databases or not table_name in databases[database_name]:
-        return HttpResponseBadRequest(f'Database "{database_name}" was not found.')
-    table: DictTableInfo = databases[database_name][table_name]
+    url_chunks: List[str] = chunkify_url(request.path)
+    entry_info: DictTableInfo | DictDescriptorInfo
+    match (len(url_chunks)):
+        case 3:  # .../main/[database_name]/[table_name]
+            database_name = to_lower_snake_case(url_chunks[1])
+            table_name = to_lower_snake_case(url_chunks[2])
+            target_table_name = table_name
+            if (
+                not database_name in databases
+                or not table_name in databases[database_name]
+            ):
+                return HttpResponseBadRequest(
+                    f'Table "{database_name}/{table_name}" was not found.'
+                )
+            table: DictTableInfo = databases[database_name][table_name]
+            entry_info = databases[database_name][table_name]
+        case 5:  # .../main/[database_name]/[table_name]/descriptors/[descriptor_name]
+            database_name = to_lower_snake_case(url_chunks[1])
+            table_name = to_lower_snake_case(url_chunks[2])
+            if (
+                not database_name in databases
+                or not table_name in databases[database_name]
+            ):
+                return HttpResponseBadRequest(
+                    f'Table "{database_name}/{table_name}" was not found.'
+                )
+            table: DictTableInfo = databases[database_name][table_name]
+
+            if url_chunks[3] != "descriptors":
+                return HttpResponseBadRequest("Bad POST URL.")
+
+            descriptor_name = to_lower_snake_case(url_chunks[4])
+
+            if "descriptors" not in table:
+                return HttpResponseBadRequest("This table has no descriptors.")
+
+            if descriptor_name not in table["descriptors"]:
+                return HttpResponseBadRequest(
+                    f"Descriptor {descriptor_name} not found in table {table_name}."
+                )
+
+            target_table_name = f"{table_name}_{descriptor_name}_descriptors"
+            entry_info = table["descriptors"][descriptor_name]
+        case _:
+            return HttpResponseBadRequest("Bad POST URL.")
 
     # load in body
     try:
@@ -207,15 +244,16 @@ def handle_insert_request(request: HttpRequest) -> HttpResponse:
     else:
         entry = data
 
-    if not check_entry(entry, database_name, table):
+    if not check_entry(entry, database_name, entry_info):
         return HttpResponseBadRequest("The given entry does not conform to the schema.")
     # END - validate schema
 
     # store data
     # @TODO https://en.wikipedia.org/wiki/Two-phase_commit_protocol
-    with psycopg.connect(
-        **CONN_CONFIG, dbname=database_name
-    ) as data_conn, psycopg.connect(**CONN_CONFIG, dbname="info") as info_conn:
+    with (
+        psycopg.connect(**CONN_CONFIG, dbname=database_name) as data_conn,
+        psycopg.connect(**CONN_CONFIG, dbname="info") as info_conn,
+    ):
         try:
             # @TODO atomicity
             # main entry
@@ -223,13 +261,13 @@ def handle_insert_request(request: HttpRequest) -> HttpResponse:
                 data_conn,
                 info_conn,
                 database_name,
-                table_name,
+                target_table_name,
                 table_name,
                 "data",
                 **decompose_entry(
                     entry,
-                    table["schema"],
-                    tagging=("tagging" in table and table["tagging"] == True),
+                    entry_info["schema"],
+                    tagging=entry_info.get("tagging", False),
                     id_column_name="id",
                 ),
             )
