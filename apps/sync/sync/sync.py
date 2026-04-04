@@ -38,8 +38,15 @@ def auto_sync(sync_event: threading.Event) -> None:
         sync()
 
 
+auto_sync_started: bool = False
+
+
 def enable_autosync():
-    AUTO_SYNC_THREAD.start()
+    global auto_sync_started
+
+    if not auto_sync_started:
+        auto_sync_started = True
+        AUTO_SYNC_THREAD.start()
 
 
 def prepare_payload(
