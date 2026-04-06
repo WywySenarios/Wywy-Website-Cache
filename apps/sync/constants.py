@@ -4,7 +4,9 @@ from os import environ
 from string import Template
 
 CACHE_URL = f"http://{environ["SYNC_HOST"]}:{environ["SYNC_PORT"]}"
-DATA_ENDPOINT: Template = Template(CACHE_URL + "/main/${database_name}/${table_name}")
+DATA_ENDPOINT: Template = Template(
+    CACHE_URL + "/main/${database_name}/${table_name}/data"
+)
 DESCRIPTOR_ENDPOINT: Template = Template(
     CACHE_URL + "/main/${database_name}/${table_name}/descriptors/${descriptor_name}"
 )
