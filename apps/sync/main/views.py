@@ -19,7 +19,9 @@ import datetime
 from utils import to_lower_snake_case, chunkify_url
 from database.schema import check_entry, check_item, check_tags, databases
 from sync.sync import queue_sync
-from database.db import store_entry, decompose_entry
+from database.db import construct_select_all_query, store_entry, decompose_entry
+
+from tags.views import handle_select_request as handle_tags_select_request
 
 logger = logging.getLogger("database")
 
@@ -33,7 +35,7 @@ def handle_select_request(request: HttpRequest) -> HttpResponse:
     Returns:
         HttpResponse: The response to the client.
     """
-    # look for the target table
+    # .../main/[database_name]/[table_name]/[table_type]/[descriptor_name]?
     url_chunks: List[str] = chunkify_url(request.path)
 
     if len(url_chunks) < 4:
@@ -41,6 +43,7 @@ def handle_select_request(request: HttpRequest) -> HttpResponse:
 
     database_name = to_lower_snake_case(url_chunks[1])
     table_name = to_lower_snake_case(url_chunks[2])
+    table_type = to_lower_snake_case(url_chunks[3])
 
     # validate database name
     if database_name not in databases:
@@ -50,6 +53,49 @@ def handle_select_request(request: HttpRequest) -> HttpResponse:
         return HttpResponseBadRequest(
             f'Table "{table_name}" was not found inside database "{database_name}"'
         )
+    table_info = databases[database_name][table_name]
+
+    select_query: sql.SQL | sql.Composed
+    match (table_type):
+        case "data":  # .../main/[database_name]/[table_name]/data
+            if len(url_chunks) != 4:
+                return HttpResponseBadRequest("Bad GET URL.")
+
+            select_query = construct_select_all_query(
+                table_name,
+                table_info["schema"],
+                values=[sql.Identifier("id")],
+                tagging=table_info.get("tagging", False),
+            )
+        case (
+            "tags" | "tag_aliases" | "tag_groups" | "tag_names"
+        ):  # .../main/[database_name]/[table_name]/[table_type]
+            return handle_tags_select_request(request)
+        case (
+            "descriptors"
+        ):  # .../main/[database_name]/[table_name]/descriptors/[descriptor_name]
+            if len(url_chunks) != 5:
+                return HttpResponseBadRequest("Bad GET URL.")
+
+            if "descriptors" not in table_info:
+                return HttpResponseBadRequest("This table has no descriptors.")
+
+            descriptor_name = url_chunks[4]
+
+            if descriptor_name not in table_info["descriptors"]:
+                return HttpResponseBadRequest(
+                    f"Could not find descriptor {descriptor_name}"
+                )
+
+            descriptor_info = table_info["descriptors"][descriptor_name]
+
+            select_query = construct_select_all_query(
+                f"{table_name}_{descriptor_name}_descriptors",
+                descriptor_info["schema"],
+                values=[sql.Identifier("id")],
+            )
+        case _:
+            return HttpResponseBadRequest(f'"{table_type}" is not a valid table type.')
 
     # check if the target table has read permissions
     if not databases[database_name][table_name]["read"]:
@@ -57,17 +103,12 @@ def handle_select_request(request: HttpRequest) -> HttpResponse:
             f"{database_name}/{table_name} does not have read permissions."
         )
 
-    # fetch the requested data
-    # @TODO more control over the exact parts of the query
+    # fetch data
     with psycopg.connect(**CONN_CONFIG, dbname=database_name) as conn:
         with conn.cursor() as cur:
             # @TODO change to tag_aliases
             # @TODO LIMIT
-            cur.execute(
-                sql.SQL("SELECT * FROM {table_name};").format(
-                    table_name=sql.Identifier(f"{table_name}_tag_names")
-                )
-            )
+            cur.execute(select_query)
 
             if cur.description is None:
                 return HttpResponseServerError(
