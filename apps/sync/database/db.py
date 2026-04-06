@@ -111,12 +111,18 @@ def construct_select_all_query(
                     )
                 )
                 values.append(
+                    sql.Identifier(f"{column_name_prefix}{column_name}_altitude")
+                )
+                values.append(
                     sql.Identifier(
                         f"{column_name_prefix}{column_name}_altitude_accuracy"
                     )
                 )
             case _:
                 values.append(sql.Identifier(f"{column_name_prefix}{column_name}"))
+
+        if schema[column_name].get("comments", False) is True:
+            values.append(sql.Identifier(f"{column_name_prefix}{column_name}_comments"))
 
     return sql.SQL("SELECT {values} FROM {table_name} {conditions};").format(
         values=sql.SQL(", ").join(values),
