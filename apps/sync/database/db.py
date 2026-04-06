@@ -80,10 +80,15 @@ def construct_select_all_query(
 ) -> sql.Composed:
     """Generates a SELECT query that contains all of the columns from the schema.
 
+    SELECT {values} FROM {table_name} {conditions};
+
     Args:
         table_name (str): _description_
         schema (DictSchema): _description_
-        conditions (sql.Composable | sql.Composed, optional): _description_. Defaults to an empty condition.
+        column_name_prefix (str, optional): The prefix to add to each column name except the primary_tag column. This argument is useful for JOINs. Defaults to an empty string.
+        conditions (sql.Composable | sql.Composed, optional): The extra conditions or JOINs of the SELECT query. Defaults to an empty condition.
+        values (List[sql.Composable], optional): Any additional values to SELECT. Defaults to an empty list.
+        tagging (bool, optional): Whether or not to SELECT a primary_tag column. Defaults to False.
 
     Returns:
         sql.Composed: _description_
@@ -113,7 +118,7 @@ def construct_select_all_query(
             case _:
                 values.append(sql.Identifier(f"{column_name_prefix}{column_name}"))
 
-    return sql.SQL("SELECT {values} from {table_name} {conditions};").format(
+    return sql.SQL("SELECT {values} FROM {table_name} {conditions};").format(
         values=sql.SQL(", ").join(values),
         table_name=sql.Identifier(table_name),
         conditions=conditions,
