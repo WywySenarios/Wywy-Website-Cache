@@ -195,6 +195,11 @@ def decompose_entry(
         else:
             raise ValueError(f"Column name {column_name} is not within the schema.")
 
+        if schema[column_name].get("comments", False):
+            columns.append(f"{column_name}_comments")
+            values.append(item[f"{column_name}_comments"])
+            values_shapes.append(sql.Placeholder())
+
     return {"columns": columns, "values_shapes": values_shapes, "values": values}
 
 
