@@ -9,6 +9,7 @@ from django.http import (
 import psycopg
 from psycopg.rows import dict_row
 from psycopg import sql
+from wywy_website_types.data import EntryTableData
 from constants import CONN_CONFIG
 import json
 
@@ -61,7 +62,17 @@ def handle_select_request(request: HttpRequest) -> HttpResponse:
                     table_name=sql.Identifier(f"{table_name}_{table_type}")
                 )
             )
-            return JsonResponse({"tags": cur.fetchall()})
+
+            if cur.description is None:
+                return HttpResponseServerError(
+                    "Could not fetch the column schema from the database."
+                )
+
+            output: EntryTableData = {
+                "columns": [column.name for column in cur.description],
+                "data": [list(row) for row in cur.fetchall()],
+            }
+        return JsonResponse(output)
 
 
 def handle_insert_request(request: HttpRequest) -> HttpResponse:
