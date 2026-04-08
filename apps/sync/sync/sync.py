@@ -167,7 +167,7 @@ def sync() -> None:
     with psycopg.connect(**CONN_CONFIG, dbname="info") as info_conn:
         # select all targets that need syncing (failed, not synced yet (NULL)) (do not select mismatch for now)
         targets_cur = info_conn.execute(
-            "SELECT id, table_name, parent_table_name, table_type, database_name, entry_id, remote_id FROM sync_status WHERE status NOT IN ('updated', 'anomalous');"
+            "SELECT id, table_name, parent_table_name, table_type, database_name, entry_id, remote_id FROM sync_status WHERE status IS NULL OR status NOT IN ('updated', 'anomalous');"
         )
 
         num_successes = 0
