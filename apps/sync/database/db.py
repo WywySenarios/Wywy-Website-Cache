@@ -197,7 +197,11 @@ def decompose_entry(
 
         if schema[column_name].get("comments", False):
             columns.append(f"{column_name}_comments")
-            values.append(item[f"{column_name}_comments"])
+            values.append(
+                cast(str, item[f"{column_name}_comments"])
+                .removeprefix("'")
+                .removesuffix("'")
+            )
             values_shapes.append(sql.Placeholder())
 
     return {"columns": columns, "values_shapes": values_shapes, "values": values}
