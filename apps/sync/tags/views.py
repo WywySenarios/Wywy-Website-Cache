@@ -7,7 +7,6 @@ from django.http import (
     HttpResponseNotAllowed,
 )
 import psycopg
-from psycopg.rows import dict_row
 from psycopg import sql
 from wywy_website_types.data import EntryTableData
 from constants import CONN_CONFIG
@@ -53,7 +52,6 @@ def handle_select_request(request: HttpRequest) -> HttpResponse:
     with psycopg.connect(
         **CONN_CONFIG,
         dbname=database_name,
-        row_factory=dict_row,  # pyright: ignore[reportArgumentType]
     ) as conn:
         with conn.cursor() as cur:
             # @TODO change to tag_aliases
