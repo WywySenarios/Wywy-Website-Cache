@@ -1,6 +1,12 @@
 name: cache
 
 services:
+  sync:
+    environment:
+      DEV: TRUE
+      DEBUG: FALSE
+      TEST: TRUE
+
   test:
     working_dir: /apps/sync
     tty: true

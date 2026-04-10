@@ -246,7 +246,8 @@ LOGGING: Dict[str, Any] = {
 }
 
 # enable auto-sync
-enable_autosync()
+if environ.get("TEST", "false").lower() != "true":
+    enable_autosync()
 
 
 # Password validation
