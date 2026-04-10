@@ -1,7 +1,7 @@
 import logging
 import psycopg
 from psycopg import sql, Connection
-from typing import Any, List, TypedDict, cast
+from typing import Any, List, TypedDict
 from wywy_website_types import Entry, DictSchema
 from constants import CONN_CONFIG
 
