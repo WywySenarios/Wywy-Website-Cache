@@ -155,7 +155,8 @@ def prepare_payload(
             payload[k] = f"'{v.removeprefix("'").removesuffix("'")}'"
 
     # remove numerical id because the sql-receptionist will take care of that.
-    if remote_id is None:
+    # do not remove the ID for the tag_aliases table.
+    if remote_id is None and table_type != "tag_aliases":
         del payload[id_column_name]
     else:
         payload[id_column_name] = remote_id
