@@ -254,11 +254,16 @@ def sync() -> None:
                         if not remote_id:
                             raise ValueError("remote_id is not valid.")
                         status = "updated"
-                except RuntimeError:
+                except RuntimeError as e:
+                    logger.warning(f"Sync failed: {e}", exc_info=False)
                     status = "failed"
-                except (requests.HTTPError, requests.exceptions.RequestException):
+                except (requests.HTTPError, requests.exceptions.RequestException) as e:
+                    logger.debug(f"Sync failed: {e}", exc_info=False)
                     status = "failed"
-                except ValueError:
+                except ValueError as e:
+                    logger.critical(
+                        f"Sync failed due to anomalous entry: {e}", exc_info=True
+                    )
                     status = "anomalous"
                 else:
                     status = "updated"
