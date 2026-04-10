@@ -23,7 +23,7 @@ def is_geodetic_point(value: Any) -> bool:
     if not isinstance(value, str):
         return False
     matches = re.fullmatch(
-        r"\'POINT ?\((-?\d+(?:\.\d+)?) (-?\d+(?:\.\d+)?)\)\'",
+        r"POINT ?\((-?\d+(?:\.\d+)?) (-?\d+(?:\.\d+)?)\)",
         value,
     )
     if matches is None:
@@ -50,25 +50,25 @@ DATATYPE_CHECK: dict[Datatype, Callable[[Any], bool]] = {
     "boolean": lambda x: str(x).lower() in ("true", "false"),
     # yyyy-mm-dd (1–4 digit year)
     "date": lambda x: isinstance(x, str)
-    and re.fullmatch(r"\'[0-9]{1,4}-[0-9]{2}-[0-9]{2}\'", x) is not None,
+    and re.fullmatch(r"[0-9]{1,4}-[0-9]{2}-[0-9]{2}", x) is not None,
     # hh:mm:ss | hh:mm:ss.ssssss | Thhmmss | Thhmmss.ssssss
     "time": lambda x: isinstance(x, str)
     and re.fullmatch(
-        r"\'([0-9]{2}:[0-9]{2}:[0-9]{2}"
+        r"([0-9]{2}:[0-9]{2}:[0-9]{2}"
         r"|[0-9]{2}:[0-9]{2}:[0-9]{2}\.[0-9]{1,6}"
         r"|T[0-9]{6}"
-        r"|T[0-9]{6}\.[0-9]{1,6})\'",
+        r"|T[0-9]{6}\.[0-9]{1,6})",
         x,
     )
     is not None,
     # yyyy-mm-ddThh:mm:ss | yyyy-mm-ddThh:mm:ss.ssssss | yyyy-mm-ddTThhmmss | yyyy-mm-ddTThhmmss.ssssss
     "timestamp": lambda x: isinstance(x, str)
     and re.fullmatch(
-        r"\'[0-9]{1,4}-[0-9]{2}-[0-9]{2}T("
+        r"[0-9]{1,4}-[0-9]{2}-[0-9]{2}T("
         r"[0-9]{2}:[0-9]{2}:[0-9]{2}"
         r"|[0-9]{2}:[0-9]{2}:[0-9]{2}\.[0-9]{1,6}"
         r"|[0-9]{6}"
-        r"|[0-9]{6}\.[0-9]{1,6})\'",
+        r"|[0-9]{6}\.[0-9]{1,6})",
         x,
     )
     is not None,
@@ -87,9 +87,9 @@ DEFAULT_VALUES: dict[Datatype, Any] = {
     "text": "",
     "bool": False,
     "boolean": False,
-    "date": "'0001-01-01'",
-    "time": "'01:00:00'",
-    "timestamp": "'0001-01-01T01:00:00'",
+    "date": "0001-01-01",
+    "time": "01:00:00",
+    "timestamp": "0001-01-01T01:00:00",
     "geodetic point": "POINT EMPTY",
 }
 

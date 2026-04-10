@@ -183,9 +183,7 @@ def decompose_entry(
             # a special command needs to be added to INSERT a geodetic point
             match (schema[column_name]["datatype"]):
                 case "geodetic point":
-                    values.append(
-                        cast(str, item[column_name]).removeprefix("'").removesuffix("'")
-                    )
+                    values.append(item[column_name])
                     values_shapes.append(sql.SQL("ST_GeographyFromText(%s)"))
                 case _:
                     values.append(item[column_name])
@@ -197,11 +195,7 @@ def decompose_entry(
 
         if schema[column_name].get("comments", False):
             columns.append(f"{column_name}_comments")
-            values.append(
-                cast(str, item[f"{column_name}_comments"])
-                .removeprefix("'")
-                .removesuffix("'")
-            )
+            values.append(item[f"{column_name}_comments"])
             values_shapes.append(sql.Placeholder())
 
     return {"columns": columns, "values_shapes": values_shapes, "values": values}

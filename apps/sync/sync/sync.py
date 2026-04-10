@@ -150,9 +150,7 @@ def prepare_payload(
             or isinstance(v, datetime.date)
             or isinstance(v, datetime.time)
         ):
-            payload[k] = f"'{v.isoformat()}'"
-        elif isinstance(v, str):
-            payload[k] = f"'{v.removeprefix("'").removesuffix("'")}'"
+            payload[k] = v.isoformat()
 
     # remove numerical id because the sql-receptionist will take care of that.
     # do not remove the ID for the tag_aliases table.
