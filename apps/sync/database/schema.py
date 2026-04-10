@@ -301,15 +301,15 @@ def check_item(
         if column_info.get("comments", False) is True:
             # comments are optional
             comments_column_name = f"{column_name}_comments"
-            comments_data = data.get(comments_column_name, None)
-            if comments_data is not None and not DATATYPE_CHECK["str"](comments_data):
-                logger.debug(
-                    f"Comments column for {column_name} must contain a string comment."
-                )
-                return False
+            if comments_column_name in data:
+                if not DATATYPE_CHECK["str"](data[comments_column_name]):
+                    logger.debug(
+                        f"Comments column for {column_name} must contain a string comment."
+                    )
+                    return False
 
-            # consume the column
-            unchecked_columns.remove(comments_column_name)
+                # consume the column
+                unchecked_columns.remove(comments_column_name)
 
         # consume the column
         unchecked_columns.remove(column_name)
