@@ -320,7 +320,9 @@ def pull(database_name: str, parent_table_name: str, table_type: str = "data") -
             endpoint: str = ""
             match (table_type):
                 case "data":
-                    endpoint = f"{environ}/{database_name}/{parent_table_name}"
+                    endpoint = (
+                        f"{environ["DATABASE_URL"]}/{database_name}/{parent_table_name}"
+                    )
                 case _:
                     endpoint = f"{environ["DATABASE_URL"]}/{database_name}/{parent_table_name}/{table_type}"
 
