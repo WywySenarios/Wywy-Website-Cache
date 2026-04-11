@@ -31,7 +31,7 @@ class AuthMiddleware:
             else:
                 return HttpResponseForbidden("Invalid credentials.")
         if not password_supplied:
-            return HttpResponseForbidden("Invalid credentials")
+            return HttpResponseForbidden("Invalid credentials.")
 
         if (
             request.COOKIES["username"] != "admin"
