@@ -131,7 +131,7 @@ def prepare_payload(
             )
         case _:
             # @TODO test if tag_names works.
-            endpoint = f"{environ["DATABASE_URL"]}/{database_name}/{parent_table_name}/{table_type}/{table_name.removeprefix(f"{parent_table_name}_").removesuffix(f"_{table_type}")}"
+            endpoint = f"{environ["DATABASE_URL"]}/{database_name}/{parent_table_name}/{table_type}"
             select_query = sql.SQL(
                 "SELECT * FROM {table_name} WHERE {id_column_name}=%s"
             ).format(
