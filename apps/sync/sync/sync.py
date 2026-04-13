@@ -115,6 +115,20 @@ def prepare_payload(
                 tagging=tagging,
             )
             # LEFT JOIN sync_status ON entry_id = this.primary_tag
+        case "descriptors":
+            descriptor_name = table_name.removeprefix(
+                f"{parent_table_name}_"
+            ).removesuffix(f"_{table_type}")
+            table_schema = databases[database_name][table_name]
+            if "descriptors" not in table_schema:
+                raise RuntimeError(
+                    f"Descriptors unexpectedly not in {database_name}/{table_name}."
+                )
+            descriptor_schema = table_schema["descriptors"][descriptor_name]
+            endpoint = f"{environ["DATABASE_URL"]}/{database_name}/{parent_table_name}/{table_type}/{descriptor_name}"
+            select_query = construct_select_all_query(
+                table_name, descriptor_schema["schema"]
+            )
         case _:
             # @TODO test if tag_names works.
             endpoint = f"{environ["DATABASE_URL"]}/{database_name}/{parent_table_name}/{table_type}/{table_name.removeprefix(f"{parent_table_name}_").removesuffix(f"_{table_type}")}"
