@@ -20,6 +20,9 @@ logger = logging.getLogger("schema")
 
 
 def is_geodetic_point(value: Any) -> bool:
+    # all geodetic points must be optional
+    if value is None:
+        return True
     if not isinstance(value, str):
         return False
     matches = re.fullmatch(
