@@ -168,10 +168,11 @@ def prepare_payload(
 
     # remove numerical id because the sql-receptionist will take care of that.
     # do not remove the ID for the tag_aliases table.
-    if remote_id is None and table_type != "tag_aliases":
-        del payload[id_column_name]
-    else:
-        payload[id_column_name] = remote_id
+    if table_type != "tag_aliases":
+        if remote_id is None:
+            del payload[id_column_name]
+        else:
+            payload[id_column_name] = remote_id
 
     return (endpoint, payload)
 
