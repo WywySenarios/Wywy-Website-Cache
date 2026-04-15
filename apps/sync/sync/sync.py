@@ -214,6 +214,7 @@ def sync() -> None:
                 status = "failed"
             else:
                 endpoint, payload = data
+                response = None
 
                 # correct the foreign key to the master database's key ids. If those key IDs are not yet available, abort.
                 try:
@@ -269,10 +270,16 @@ def sync() -> None:
                             raise ValueError("remote_id is not valid.")
                         status = "updated"
                 except RuntimeError as e:
-                    logger.warning(f"Sync failed: {e}", exc_info=False)
+                    logger.warning(
+                        f"Sync failed: {e} . Reason: {"None" if response is None else response.text}",
+                        exc_info=False,
+                    )
                     status = "failed"
                 except (requests.HTTPError, requests.exceptions.RequestException) as e:
-                    logger.debug(f"Sync failed: {e}", exc_info=False)
+                    logger.debug(
+                        f"Sync failed: {e} . Reason: {"None" if response is None else response.text}",
+                        exc_info=False,
+                    )
                     status = "failed"
                 except ValueError as e:
                     logger.critical(
