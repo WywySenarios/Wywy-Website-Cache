@@ -101,10 +101,31 @@ def handle_select_request(request: HttpRequest) -> HttpResponse:
         case _:
             return HttpResponseBadRequest(f'"{table_type}" is not a valid table type.')
 
+    conditions: list[sql.Composable | sql.Composed] = []
+
+    select_id = request.GET.get("id")
+    parent_id = request.GET.get("parent_id")
+    if select_id is not None:
+        conditions.append(sql.SQL("WHERE id={id}").format(id=sql.Literal(select_id)))
+    elif parent_id is not None:
+        match (table_type):
+            case "data":
+                return HttpResponseBadRequest(f"Main tables do not have parent tables.")
+            case "descriptors":
+                return HttpResponseBadRequest(
+                    "Not implemented yet. Descriptors currently do not have relationships with their original entries."
+                )
+            case _:
+                logger.critical(
+                    f"Unexpected table type found while constructing SELECT query: {table_type}"
+                )
+        conditions.append(sql.SQL("WHERE "))
+
     select_query = construct_select_all_query(
         target_table_name,
         target_schema,
         values=[sql.Identifier("id")],
+        conditions=sql.SQL(" ").join(conditions),
         tagging=tagging,
     )
 

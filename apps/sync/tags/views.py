@@ -48,6 +48,27 @@ def handle_select_request(request: HttpRequest) -> HttpResponse:
         case _:
             return HttpResponseBadRequest(f'"{table_type}" is not a valid table type.')
 
+    conditions: list[sql.Composable] = []
+
+    select_id = request.GET.get("id")
+    parent_id = request.GET.get("parent_id")
+    if select_id is not None:
+        conditions.append(sql.SQL("WHERE id={id}").format(id=sql.Literal(select_id)))
+    elif parent_id is not None:
+        match (table_type):
+            case "tags":
+                conditions.append(
+                    sql.SQL("WHERE entry_id={id}").format(id=sql.Literal(parent_id))
+                )
+            case "tag_aliases":
+                conditions.append(
+                    sql.SQL("WHERE tag_id={id}").format(id=sql.Literal(parent_id))
+                )
+            case _:
+                return HttpResponseBadRequest(
+                    f"This table type does not support selection by parent ID."
+                )
+
     # get results
     with psycopg.connect(
         **CONN_CONFIG,
@@ -56,8 +77,9 @@ def handle_select_request(request: HttpRequest) -> HttpResponse:
         with conn.cursor() as cur:
             # @TODO change to tag_aliases
             cur.execute(
-                sql.SQL("SELECT * FROM {table_name};").format(
-                    table_name=sql.Identifier(f"{table_name}_{table_type}")
+                sql.SQL("SELECT * FROM {table_name} {conditions};").format(
+                    table_name=sql.Identifier(f"{table_name}_{table_type}"),
+                    conditions=sql.SQL(" ").join(conditions),
                 )
             )
 
