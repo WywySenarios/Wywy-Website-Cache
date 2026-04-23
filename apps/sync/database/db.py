@@ -80,7 +80,7 @@ def construct_select_all_query(
 ) -> sql.Composed:
     """Generates a SELECT query that contains all of the columns from the schema.
 
-    SELECT {values} FROM {table_name} {conditions};
+    SELECT {values} FROM {table_name} {conditions} LIMIT 500;
 
     Args:
         table_name (str): _description_
@@ -124,7 +124,7 @@ def construct_select_all_query(
         if schema[column_name].get("comments", False) is True:
             values.append(sql.Identifier(f"{column_name_prefix}{column_name}_comments"))
 
-    return sql.SQL("SELECT {values} FROM {table_name} {conditions};").format(
+    return sql.SQL("SELECT {values} FROM {table_name} {conditions} LIMIT 500;").format(
         values=sql.SQL(", ").join(values),
         table_name=sql.Identifier(table_name),
         conditions=conditions,
