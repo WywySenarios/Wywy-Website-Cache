@@ -9,7 +9,13 @@ from django.http import (
     HttpResponseNotAllowed,
 )
 from typing import List, Any, cast
-from wywy_website_types import DictTableInfo, DictDescriptorInfo, Entry, EntryTableData
+from wywy_website_types import (
+    DictTableInfo,
+    DictDescriptorInfo,
+    Entry,
+    EntryTableData,
+    DictSchema,
+)
 import json
 import psycopg
 from psycopg import sql
@@ -56,17 +62,17 @@ def handle_select_request(request: HttpRequest) -> HttpResponse:
     table_info = databases[database_name][table_name]
 
     select_query: sql.SQL | sql.Composed
+    target_schema: DictSchema
+    target_table_name: str
+    tagging: bool
     match (table_type):
         case "data":  # .../main/[database_name]/[table_name]/data
             if len(url_chunks) != 4:
                 return HttpResponseBadRequest("Bad GET URL.")
 
-            select_query = construct_select_all_query(
-                table_name,
-                table_info["schema"],
-                values=[sql.Identifier("id")],
-                tagging=table_info.get("tagging", False),
-            )
+            target_table_name = table_name
+            target_schema = table_info["schema"]
+            tagging = table_info.get("tagging", False)
         case (
             "tags" | "tag_aliases" | "tag_groups" | "tag_names"
         ):  # .../main/[database_name]/[table_name]/[table_type]
@@ -89,13 +95,18 @@ def handle_select_request(request: HttpRequest) -> HttpResponse:
 
             descriptor_info = table_info["descriptors"][descriptor_name]
 
-            select_query = construct_select_all_query(
-                f"{table_name}_{descriptor_name}_descriptors",
-                descriptor_info["schema"],
-                values=[sql.Identifier("id")],
-            )
+            target_table_name = f"{table_name}_{descriptor_name}_descriptors"
+            target_schema = descriptor_info["schema"]
+            tagging = False
         case _:
             return HttpResponseBadRequest(f'"{table_type}" is not a valid table type.')
+
+    select_query = construct_select_all_query(
+        target_table_name,
+        target_schema,
+        values=[sql.Identifier("id")],
+        tagging=tagging,
+    )
 
     # check if the target table has read permissions
     if not databases[database_name][table_name]["read"]:
