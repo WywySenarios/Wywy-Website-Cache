@@ -18,7 +18,10 @@ def index(request: HttpRequest) -> HttpResponse:
         return HttpResponseBadRequest()
 
     # is the json valid?
-    data = json.loads(request.body)
+    try:
+        data = json.loads(request.body)
+    except json.JSONDecodeError as e:
+        return HttpResponseBadRequest(f"Invalid JSON: {e}")
     if data is None or "username" not in data or "password" not in data:
         return HttpResponseBadRequest()
 

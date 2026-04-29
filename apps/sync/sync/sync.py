@@ -12,8 +12,12 @@ from psycopg.rows import dict_row
 from psycopg import sql
 from typing import List, Literal, Any, Tuple, cast
 
-from schema import databases
-from db import update_foreign_key, store_entry, construct_select_all_query
+from database.schema import databases
+from database.db import (
+    update_foreign_key,
+    store_entry,
+    construct_select_all_query,
+)
 
 logger = logging.getLogger("sync")
 
@@ -38,8 +42,15 @@ def auto_sync(sync_event: threading.Event) -> None:
         sync()
 
 
+auto_sync_started: bool = False
+
+
 def enable_autosync():
-    AUTO_SYNC_THREAD.start()
+    global auto_sync_started
+
+    if not auto_sync_started:
+        auto_sync_started = True
+        AUTO_SYNC_THREAD.start()
 
 
 def prepare_payload(
@@ -48,6 +59,7 @@ def prepare_payload(
     table_name: str,
     parent_table_name: str,
     table_type: str,
+    remote_id: str | None = None,
 ) -> Tuple[str, dict[str, Any]] | None:
     id_column_name: str = "id"
     tagging: bool = False
@@ -71,6 +83,9 @@ def prepare_payload(
         case "data":
             values: List[sql.Composable] = []
             conditions: List[sql.Composable] = []
+            # add ID column to the SELECT query. There is no need to account for the edge case where the ID column is a part of the schema.
+            values.append(id_column)
+
             if tagging:
                 conditions.append(
                     sql.SQL(
@@ -100,9 +115,23 @@ def prepare_payload(
                 tagging=tagging,
             )
             # LEFT JOIN sync_status ON entry_id = this.primary_tag
+        case "descriptors":
+            descriptor_name = table_name.removeprefix(
+                f"{parent_table_name}_"
+            ).removesuffix(f"_{table_type}")
+            table_schema = databases[database_name][table_name]
+            if "descriptors" not in table_schema:
+                raise RuntimeError(
+                    f"Descriptors unexpectedly not in {database_name}/{table_name}."
+                )
+            descriptor_schema = table_schema["descriptors"][descriptor_name]
+            endpoint = f"{environ["DATABASE_URL"]}/{database_name}/{parent_table_name}/{table_type}/{descriptor_name}"
+            select_query = construct_select_all_query(
+                table_name, descriptor_schema["schema"]
+            )
         case _:
             # @TODO test if tag_names works.
-            endpoint = f"{environ["DATABASE_URL"]}/{database_name}/{parent_table_name}/{table_type}/{table_name.removeprefix(f"{parent_table_name}_").removesuffix(f"_{table_type}")}"
+            endpoint = f"{environ["DATABASE_URL"]}/{database_name}/{parent_table_name}/{table_type}"
             select_query = sql.SQL(
                 "SELECT * FROM {table_name} WHERE {id_column_name}=%s"
             ).format(
@@ -135,56 +164,15 @@ def prepare_payload(
             or isinstance(v, datetime.date)
             or isinstance(v, datetime.time)
         ):
-            payload[k] = f"'{v.isoformat()}'"
-        elif isinstance(v, str):
-            payload[k] = f"'{v.removeprefix("'").removesuffix("'")}'"
+            payload[k] = v.isoformat()
 
     # remove numerical id because the sql-receptionist will take care of that.
-    if "id" in payload:
-        del payload["id"]
-
-    # status: None | Literal["updated", "failed", "anomalous", "added"] = None
-
-    # if there isn't a status yet,
-    # if status is None:
-    #     # correct the foreign key to the master database's key ids. If those key IDs are not yet available, abort.
-    #     try:
-    #         match (table_type):
-    #             case "tag_aliases":
-    #                 update_foreign_key(
-    #                     payload,
-    #                     database_name,
-    #                     f"{parent_table_name}_tag_names",
-    #                     "tag_id",
-    #                     target_type=int,
-    #                 )
-    #             case "tag_groups":
-    #                 update_foreign_key(
-    #                     payload,
-    #                     database_name,
-    #                     f"{parent_table_name}_tag_names",
-    #                     "tag_id",
-    #                     target_type=int,
-    #                 )
-    #             case "tags":
-    #                 update_foreign_key(
-    #                     payload,
-    #                     database_name,
-    #                     f"{parent_table_name}_tag_names",
-    #                     "tag_id",
-    #                     target_type=int,
-    #                 )
-    #                 update_foreign_key(
-    #                     payload,
-    #                     database_name,
-    #                     parent_table_name,
-    #                     "entry_id",
-    #                     target_type=int,
-    #                 )
-    #             case _:
-    #                 pass
-    #     except RuntimeError:
-    #         status = "failed"
+    # do not remove the ID for the tag_aliases table.
+    if table_type != "tag_aliases":
+        if remote_id is None:
+            del payload[id_column_name]
+        else:
+            payload[id_column_name] = remote_id
 
     return (endpoint, payload)
 
@@ -193,7 +181,7 @@ def sync() -> None:
     with psycopg.connect(**CONN_CONFIG, dbname="info") as info_conn:
         # select all targets that need syncing (failed, not synced yet (NULL)) (do not select mismatch for now)
         targets_cur = info_conn.execute(
-            "SELECT id, table_name, parent_table_name, table_type, database_name, entry_id, status FROM sync_status WHERE status IN ('failed') OR status IS NULL;"
+            "SELECT id, table_name, parent_table_name, table_type, database_name, entry_id, remote_id FROM sync_status WHERE status IS NULL OR status NOT IN ('updated', 'anomalous');"
         )
 
         num_successes = 0
@@ -206,21 +194,27 @@ def sync() -> None:
             database_name: str = target[4]
             target_id: str = target[5]
 
-            data = prepare_payload(
-                target_id, database_name, table_name, parent_table_name, table_type
-            )
-
             # @TODO check if the target already exists
 
-            status: None | Literal["updated", "failed", "anomalous", "added"] = None
+            status: None | Literal["modified", "updated", "failed", "anomalous"] = None
             endpoint = None
             payload = None
-            remote_id: int | str | None = None
+            remote_id: int | str | None = target[6]
+
+            data = prepare_payload(
+                target_id,
+                database_name,
+                table_name,
+                parent_table_name,
+                table_type,
+                remote_id=target[6],
+            )
 
             if data is None:
                 status = "failed"
             else:
                 endpoint, payload = data
+                response = None
 
                 # correct the foreign key to the master database's key ids. If those key IDs are not yet available, abort.
                 try:
@@ -274,18 +268,29 @@ def sync() -> None:
 
                         if not remote_id:
                             raise ValueError("remote_id is not valid.")
-                        status = "added"
-                except RuntimeError:
+                        status = "updated"
+                except RuntimeError as e:
+                    logger.warning(
+                        f"Sync failed: {e} . Reason: {"None" if response is None else response.text}",
+                        exc_info=False,
+                    )
                     status = "failed"
-                except (requests.HTTPError, requests.exceptions.RequestException):
+                except (requests.HTTPError, requests.exceptions.RequestException) as e:
+                    logger.debug(
+                        f"Sync failed: {e} . Reason: {"None" if response is None else response.text}",
+                        exc_info=False,
+                    )
                     status = "failed"
-                except ValueError:
+                except ValueError as e:
+                    logger.critical(
+                        f"Sync failed due to anomalous entry: {e}", exc_info=True
+                    )
                     status = "anomalous"
                 else:
-                    status = "added"
+                    status = "updated"
 
             match (status):
-                case "added":
+                case "updated":
                     num_successes += 1
                 case _:
                     num_failures += 1
@@ -337,7 +342,9 @@ def pull(database_name: str, parent_table_name: str, table_type: str = "data") -
             endpoint: str = ""
             match (table_type):
                 case "data":
-                    endpoint = f"{environ}/{database_name}/{parent_table_name}"
+                    endpoint = (
+                        f"{environ["DATABASE_URL"]}/{database_name}/{parent_table_name}"
+                    )
                 case _:
                     endpoint = f"{environ["DATABASE_URL"]}/{database_name}/{parent_table_name}/{table_type}"
 

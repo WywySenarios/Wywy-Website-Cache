@@ -1,12 +1,20 @@
 name: cache
 
 services:
+  sync:
+    environment:
+      DEV: TRUE
+      DEBUG: FALSE
+      TEST: TRUE
+
   test:
     working_dir: /apps/sync
     tty: true
     build:
       context: ../
       dockerfile: apps/tests/Dockerfile
+      args:
+        USER_ID: ${USER_ID}
     env_file:
       - path: ${UNIVERSAL_CONFIG_DIR}/.env
         required: true
@@ -21,14 +29,18 @@ services:
       - POSTGRES_USER=${DATABASE_USERNAME}
       - POSTGRES_PORT=5432
       - DEV=TRUE
+      - DEBUG=FALSE
+      - TEST=TRUE
     secrets:
       - admin
     networks:
       - default
     volumes:
-      - ./../apps/sync:/apps/sync
-      - ${UNIVERSAL_CONFIG_DIR}/config.yml:/apps/sync/config.yml
+      - ./../apps/sync:/home/wywy
+      - ${UNIVERSAL_CONFIG_DIR}/config.yml:/home/wywy/config.yml
     depends_on:
+      sync:
+        condition: service_started
       create_tables:
         condition: service_completed_successfully
       database:

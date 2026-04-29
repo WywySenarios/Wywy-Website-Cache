@@ -2,7 +2,7 @@ import logging
 import psycopg
 from psycopg import sql, Connection
 from typing import Any, List, TypedDict
-from Wywy_Website_Types import EntryData, DictSchema
+from wywy_website_types import Entry, DictSchema
 from constants import CONN_CONFIG
 
 logger = logging.getLogger("database")
@@ -32,7 +32,7 @@ def get_remote_id(
 
 
 def update_foreign_key(
-    entry: EntryData,
+    entry: Entry,
     database_name: str,
     table_name: str,
     target: str,
@@ -80,10 +80,15 @@ def construct_select_all_query(
 ) -> sql.Composed:
     """Generates a SELECT query that contains all of the columns from the schema.
 
+    SELECT {values} FROM {table_name} {conditions} LIMIT 500;
+
     Args:
         table_name (str): _description_
         schema (DictSchema): _description_
-        conditions (sql.Composable | sql.Composed, optional): _description_. Defaults to an empty condition.
+        column_name_prefix (str, optional): The prefix to add to each column name except the primary_tag column. This argument is useful for JOINs. Defaults to an empty string.
+        conditions (sql.Composable | sql.Composed, optional): The extra conditions or JOINs of the SELECT query. Defaults to an empty condition.
+        values (List[sql.Composable], optional): Any additional values to SELECT. Defaults to an empty list.
+        tagging (bool, optional): Whether or not to SELECT a primary_tag column. Defaults to False.
 
     Returns:
         sql.Composed: _description_
@@ -106,6 +111,9 @@ def construct_select_all_query(
                     )
                 )
                 values.append(
+                    sql.Identifier(f"{column_name_prefix}{column_name}_altitude")
+                )
+                values.append(
                     sql.Identifier(
                         f"{column_name_prefix}{column_name}_altitude_accuracy"
                     )
@@ -113,7 +121,10 @@ def construct_select_all_query(
             case _:
                 values.append(sql.Identifier(f"{column_name_prefix}{column_name}"))
 
-    return sql.SQL("SELECT {values} from {table_name} {conditions};").format(
+        if schema[column_name].get("comments", False) is True:
+            values.append(sql.Identifier(f"{column_name_prefix}{column_name}_comments"))
+
+    return sql.SQL("SELECT {values} FROM {table_name} {conditions} LIMIT 500;").format(
         values=sql.SQL(", ").join(values),
         table_name=sql.Identifier(table_name),
         conditions=conditions,
@@ -127,18 +138,22 @@ class DecomposedEntry(TypedDict):
 
 
 def decompose_entry(
-    item: EntryData, schema: DictSchema, tagging: bool = False
+    item: Entry,
+    schema: DictSchema,
+    tagging: bool = False,
+    id_column_name: str | None = None,
 ) -> DecomposedEntry:
-    """Decomposes an entry into columns and values based on the given schema.
+    """Decomposes an entry into columns and values based on the given schema. Ignores erroneous columns.
 
     Args:
         item (dict): The entry to decompose.
         schema (dict): The schema that the entry should conform to.
         primary_column_name (str): The name of the primary column.
         tagging (bool, optional): Whether or not tagging is enabled. Defaults to False.
+        id_column_name (str | None, optional): Specify the id column name for inclusion if it is not a part of the schema. This function understands that the ID column is optional. Defaults to None.
 
     Raises:
-        ValueError: When there are missing columns. Ignores erroneous columns.
+        ValueError: When there are missing columns.
 
     Returns:
         Tuple[List[str], List[sql.Composeable], List[Any]]: The column names, the value_shapes, and the values.
@@ -146,6 +161,13 @@ def decompose_entry(
     columns: List[str] = []
     values_shapes: List[sql.Composable] = []
     values: List[Any] = []
+
+    if id_column_name is not None:
+        id = item.get(id_column_name, None)
+        if id is not None:
+            columns.append(id_column_name)
+            values.append(id)
+            values_shapes.append(sql.Placeholder())
 
     # check for primary tag column
     if tagging:
@@ -158,18 +180,23 @@ def decompose_entry(
         columns.append(column_name)
 
         if column_name in item:
-            values.append(item[column_name])
-
             # a special command needs to be added to INSERT a geodetic point
             match (schema[column_name]["datatype"]):
                 case "geodetic point":
+                    values.append(item[column_name])
                     values_shapes.append(sql.SQL("ST_GeographyFromText(%s)"))
                 case _:
+                    values.append(item[column_name])
                     values_shapes.append(sql.Placeholder())
         elif schema[column_name]["optional"] is True:
             values_shapes.append(sql.SQL("NULL"))
         else:
             raise ValueError(f"Column name {column_name} is not within the schema.")
+
+        if schema[column_name].get("comments", False):
+            columns.append(f"{column_name}_comments")
+            values.append(item.get(f"{column_name}_comments", None))
+            values_shapes.append(sql.Placeholder())
 
     return {"columns": columns, "values_shapes": values_shapes, "values": values}
 
@@ -217,11 +244,19 @@ def store_entry(
 
     data_cur = data_conn.execute(
         sql.SQL(
-            "INSERT INTO {table} ({fields}) VALUES({values}) RETURNING {id_column};"
+            "INSERT INTO {table} ({fields}) VALUES({values}) ON CONFLICT ({id_column}) DO UPDATE SET {update_shape} RETURNING {id_column};"
         ).format(
             table=sql.Identifier(target_table_name),
             fields=sql.SQL(", ").join(map(sql.Identifier, columns)),
             values=values_shape,
+            update_shape=sql.SQL(", ").join(
+                map(
+                    lambda column_name: sql.SQL(
+                        "{column_name} = EXCLUDED.{column_name}"
+                    ).format(column_name=sql.Identifier(column_name)),
+                    columns,
+                )
+            ),
             id_column=sql.Identifier(id_column_name),
         ),
         (*values,),
