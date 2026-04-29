@@ -13,7 +13,7 @@ from constants import CONN_CONFIG
 import json
 
 from database.schema import databases
-from utils import chunkify_url, to_lower_snake_case, remove_quotation
+from utils import chunkify_url, to_lower_snake_case
 from sync.sync import queue_sync
 from database.db import store_entry
 
@@ -147,7 +147,9 @@ def handle_insert_request(request: HttpRequest) -> HttpResponse:
                         return HttpResponseBadRequest(
                             "The related tag ID must be a positive integer."
                         )
-                    if len(list(data)) > 2:
+                    if "id" in data and not isinstance(data["id"], int):
+                        return HttpResponseBadRequest("The ID must be an integer.")
+                    if set(data.keys()) - {"id", "entry_id", "tag_id"}:
                         return HttpResponseBadRequest(
                             "Erroneous information was provided."
                         )
@@ -171,13 +173,12 @@ def handle_insert_request(request: HttpRequest) -> HttpResponse:
                         return HttpResponseBadRequest(
                             "The new tag name must be a string."
                         )
-                    if len(list(data)) > 1:
+                    if "id" in data and not isinstance(data["id"], int):
+                        return HttpResponseBadRequest("The ID must be an integer.")
+                    if set(data.keys()) - {"id", "tag_name"}:
                         return HttpResponseBadRequest(
                             "Erroneous information was provided."
                         )
-
-                    # unquote necessary fields
-                    data["tag_name"] = remove_quotation(data["tag_name"])
 
                     # store data
                     # @TODO atomicity
@@ -223,9 +224,6 @@ def handle_insert_request(request: HttpRequest) -> HttpResponse:
                             "Erroneous information was provided."
                         )
 
-                    # unquote necessary fields
-                    data["alias"] = remove_quotation(data["alias"])
-
                     store_entry(
                         data_conn,
                         info_conn,
@@ -243,7 +241,7 @@ def handle_insert_request(request: HttpRequest) -> HttpResponse:
                         return HttpResponseBadRequest(
                             "Related group name not provided."
                         )
-                    if not isinstance(data["alias"], str):
+                    if not isinstance(data["group_name"], str):
                         return HttpResponseBadRequest(
                             "The related group name must be a string."
                         )
@@ -255,13 +253,12 @@ def handle_insert_request(request: HttpRequest) -> HttpResponse:
                         return HttpResponseBadRequest(
                             "The ID of the tag being grouped must be a positive integer."
                         )
-                    if len(list(data)) > 2:
+                    if "id" in data and not isinstance(data["id"], int):
+                        return HttpResponseBadRequest("The ID must be an integer.")
+                    if set(data.keys()) - {"id", "group_name", "tag_id"}:
                         return HttpResponseBadRequest(
                             "Erroneous information was provided."
                         )
-
-                    # unquote necessary fields
-                    data["group_name"] = remove_quotation(data["group_name"])
 
                     store_entry(
                         data_conn,
