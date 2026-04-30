@@ -188,7 +188,7 @@ def decompose_entry(
                 case _:
                     values.append(item[column_name])
                     values_shapes.append(sql.Placeholder())
-        elif schema[column_name]["optional"] is True:
+        elif schema[column_name].get("optional", False) is True:
             values_shapes.append(sql.SQL("NULL"))
         else:
             raise ValueError(f"Column name {column_name} is not within the schema.")
