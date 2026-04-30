@@ -263,7 +263,29 @@ def store_entry(
     )
     id = next(data_cur)[0]
     info_conn.execute(
-        "INSERT INTO sync_status (table_name, parent_table_name, table_type, database_name, entry_id, remote_id, sync_timestamp, status) VALUES (%s, %s, %s, %s, %s, NULL, NULL, NULL);",
+        """
+        INSERT INTO sync_status (
+            table_name,
+            parent_table_name,
+            table_type,
+            database_name,
+            entry_id,
+            sync_timestamp,
+            status
+        ) VALUES (
+            %s,
+            %s,
+            %s,
+            %s,
+            %s,
+            NULL,
+            NULL
+        )
+        ON CONFLICT (table_name, database_name, entry_id)
+        DO UPDATE SET
+            sync_timestamp = NULL,
+            status = 'modified'
+        """,
         (
             target_table_name,
             target_parent_table_name,
