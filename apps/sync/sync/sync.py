@@ -119,7 +119,7 @@ def prepare_payload(
             descriptor_name = table_name.removeprefix(
                 f"{parent_table_name}_"
             ).removesuffix(f"_{table_type}")
-            table_schema = databases[database_name][table_name]
+            table_schema = databases[database_name][parent_table_name]
             if "descriptors" not in table_schema:
                 raise RuntimeError(
                     f"Descriptors unexpectedly not in {database_name}/{table_name}."
@@ -127,7 +127,11 @@ def prepare_payload(
             descriptor_schema = table_schema["descriptors"][descriptor_name]
             endpoint = f"{environ["DATABASE_URL"]}/{database_name}/{parent_table_name}/{table_type}/{descriptor_name}"
             select_query = construct_select_all_query(
-                table_name, descriptor_schema["schema"]
+                table_name,
+                descriptor_schema["schema"],
+                conditions=sql.SQL("WHERE {id_column_name}=%s").format(
+                    id_column_name=id_column
+                ),
             )
         case _:
             # @TODO test if tag_names works.
@@ -170,7 +174,8 @@ def prepare_payload(
     # do not remove the ID for the tag_aliases table.
     if table_type != "tag_aliases":
         if remote_id is None:
-            del payload[id_column_name]
+            if id_column_name in payload:
+                del payload[id_column_name]
         else:
             payload[id_column_name] = remote_id
 
@@ -211,6 +216,9 @@ def sync() -> None:
             )
 
             if data is None:
+                logger.warning(
+                    f"Could not find a related entry for {database_name}/{table_name}/{target_id}."
+                )
                 status = "failed"
             else:
                 endpoint, payload = data
