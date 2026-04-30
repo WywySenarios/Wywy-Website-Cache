@@ -27,7 +27,10 @@ from database.schema import check_entry, check_item, check_tags, databases
 from sync.sync import queue_sync
 from database.db import construct_select_all_query, store_entry, decompose_entry
 
-from tags.views import handle_select_request as handle_tags_select_request
+from tags.views import (
+    handle_select_request as handle_tags_select_request,
+    handle_insert_request as handle_tags_insert_request,
+)
 
 logger = logging.getLogger("database")
 
@@ -203,7 +206,13 @@ def handle_insert_request(request: HttpRequest) -> HttpResponse:
                     f'Table "{database_name}/{table_name}" was not found.'
                 )
             if len(url_chunks) == 4 and url_chunks[3] != "data":
-                return HttpResponseBadRequest(f"Bad target: {url_chunks[3]}")
+                match url_chunks[3]:
+                    case "data":
+                        pass
+                    case "tags" | "tag_names" | "tag_aliases" | "tag_groups":
+                        return handle_tags_insert_request(request)
+                    case _:
+                        return HttpResponseBadRequest(f"Bad target: {url_chunks[3]}")
             table: DictTableInfo = databases[database_name][table_name]
             entry_info = databases[database_name][table_name]
         case 5:  # .../main/[database_name]/[table_name]/descriptors/[descriptor_name]
