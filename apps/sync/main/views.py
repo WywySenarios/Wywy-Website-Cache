@@ -303,15 +303,18 @@ def handle_insert_request(request: HttpRequest) -> HttpResponse:
                         )
 
                     for descriptor_entry in cast(list[Any], descriptor_array):
-                        if not isinstance(descriptor_array, dict):
+                        if not isinstance(descriptor_entry, dict):
                             return HttpResponseBadRequest(
                                 "Descriptor entries must be JSON objects."
                             )
 
-                        check_item(
+                        if not check_item(
                             cast(dict[str, Any], descriptor_entry),
                             table["descriptors"][descriptor_name]["schema"],
-                        )
+                        ):
+                            return HttpResponseBadRequest(
+                                "A descriptor inside the given entry does not conform to the schema."
+                            )
 
                     descriptors[to_lower_snake_case(descriptor_type)] = cast(
                         list[dict[str, Any]], descriptor_array
