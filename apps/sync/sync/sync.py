@@ -177,7 +177,7 @@ def prepare_payload(
             if id_column_name in payload:
                 del payload[id_column_name]
         else:
-            payload[id_column_name] = remote_id
+            payload[id_column_name] = int(remote_id)
 
     return (endpoint, payload)
 
