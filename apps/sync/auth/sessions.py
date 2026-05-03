@@ -20,10 +20,6 @@ def create_session(username: str) -> str:
 
     secret_hash = hashlib.sha256(secret.encode()).hexdigest()
 
-    print(id)
-    print(secret)
-    print(secret_hash)
-
     with connect(**CONN_CONFIG, dbname="info") as conn:
         with conn.cursor() as cur:
             cur.execute(
