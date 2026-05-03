@@ -18,6 +18,8 @@ services:
     environment:
       SERVICE_NAME: cache
       DATABASE_PORT: 5432
+    secrets:
+      - admin
     depends_on:
       database:
         condition: service_healthy
