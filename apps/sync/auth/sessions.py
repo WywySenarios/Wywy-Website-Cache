@@ -32,3 +32,34 @@ def create_session(username: str) -> str:
             )
 
     return f"{id}.{secret}"
+
+
+def validate_session(token: str) -> tuple[bool, str]:
+    """Validates a session and finds the username associated with the session.
+
+    Args:
+        token (str): _description_
+
+    Returns:
+        tuple[bool, str]: Whether or not the session is valid and a username string if the session is valid. The string will be empty if the session is invalid.
+    """
+    id, secret = token.split(".")
+
+    with connect(**CONN_CONFIG, dbname="info") as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT sessions.secret_hash, users.username FROM sessions INNER JOIN users ON sessions.user_id = users.id WHERE sessions.id=%s",
+                (id,),
+            )
+
+            rows = cur.fetchall()
+
+            if len(rows) != 1:
+                return (False, "")
+
+            if secrets.compare_digest(
+                rows[0][0], hashlib.sha256(secret.encode()).hexdigest()
+            ):
+                return (True, rows[0][1])
+            else:
+                return (False, "")
