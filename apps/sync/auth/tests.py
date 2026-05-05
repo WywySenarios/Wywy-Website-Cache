@@ -2,6 +2,7 @@ from unittest import TestCase
 from psycopg import connect
 from constants import CONN_CONFIG
 from .sessions import create_session, validate_session
+from .creds import check_creds
 
 
 class TestSessionCreation(TestCase):
@@ -44,3 +45,11 @@ class TestSessionCreation(TestCase):
             validate_session(token)[0],
             f"An invalid token ({token}) erroneously passed token validation.",
         )
+
+    def testCredentialValidation(self):
+        with open("/run/secrets/admin", "r") as f:
+            admin_password = f.read()
+
+            self.assertFalse(check_creds("notadmin", admin_password))
+            self.assertFalse(check_creds("admin", admin_password + "lol"))
+            self.assertTrue(check_creds("admin", admin_password))
