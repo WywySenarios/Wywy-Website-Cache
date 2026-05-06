@@ -1,23 +1,41 @@
 from unittest import TestCase
-from psycopg import connect
+from psycopg.conninfo import make_conninfo
+from psycopg_pool import ConnectionPool
+from psycopg.errors import CheckViolation, NotNullViolation
 from constants import CONN_CONFIG
 from .sessions import create_session, validate_session
 from .creds import check_creds
+from typing import cast
 
 
 class TestSessionCreation(TestCase):
+    pool = ConnectionPool(
+        conninfo=make_conninfo(
+            **CONN_CONFIG,
+            dbname="info",
+        ),
+        min_size=0,
+        max_size=10,
+    )
+
     def setUp(self):
-        pass
+        with self.pool.connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "UPDATE users SET tokens_remaining=1000 WHERE username='admin'"
+                )
 
     def tearDown(self):
-        with connect(**CONN_CONFIG, dbname="info") as conn:
+        with self.pool.connection() as conn:
             with conn.cursor() as cur:
                 cur.execute("TRUNCATE sessions")
 
     def testSessionCreationAndValidation(self):
-        """Test whether or not session creation runs to completion and passes validation"""
+        """Test whether or not session creation runs to completion and passes validation when intended."""
 
-        token = create_session("admin")
+        token = cast(str, create_session("admin"))
+
+        self.assertIsNotNone(token, "A valid user login did not pass validation.")
 
         tokenized_token = token.split(".")
 
@@ -38,6 +56,43 @@ class TestSessionCreation(TestCase):
             "admin",
             f'The session username is incorrect. Expected "admin", received "{username}".',
         )
+
+        self.assertFalse(
+            validate_session(token[:-1])[0],
+            "Invalid token (wrong secret) passed validation.",
+        )
+
+    def testNoTokensSessionCreation(self):
+        with self.pool.connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "UPDATE users SET tokens_remaining=0 WHERE username='admin'"
+                )
+
+        with self.assertRaises(CheckViolation):
+            create_session("admin")
+
+    def testTokenBucketRefill(self):
+        with self.pool.connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "UPDATE users SET tokens_remaining = 0, last_seen = NOW() - INTERVAL '1000 seconds' WHERE username = 'admin'"
+                )
+
+        self.assertIsNotNone(create_session("admin"))
+
+    def testTokenBucketOverfill(self):
+        with self.pool.connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "UPDATE users SET tokens_remaining=0, last_seen=NOW() - INTERVAL '10000 seconds' WHERE username='admin'"
+                )
+                cur.execute("SELECT tokens_remaining FROM users WHERE username='admin'")
+                self.assertLessEqual(cur.fetchall()[0][0], 1000.01)
+
+    def testBadUserSessionCreation(self):
+        with self.assertRaises(NotNullViolation):
+            create_session("not_admin")
 
     def testNegativeSessionValidation(self):
         token = "xxxxxxxxxxxxxxxxxxxxxxxx.xxxxxxxxxxxxxxxxxxxxxxxx"

@@ -4,7 +4,7 @@ import secrets
 import hashlib
 
 
-def create_session(username: str) -> str:
+def create_session(username: str) -> str | None:
     """Attempts to create a new user session.
 
     A successful creation involves creating a secure token and registering it with the database.
@@ -14,6 +14,10 @@ def create_session(username: str) -> str:
 
     Returns:
         str | None: None on failure, the token on success.
+
+    Raises:
+        psycopg.errors.CheckViolation: When the user does not have enough tokens to open a new session.
+        psycopg.errors.NotNullViolation: When the user does not exist.
     """
     id = secrets.token_urlsafe(24)[:24]
     secret = secrets.token_urlsafe(24)[:24]
@@ -23,13 +27,23 @@ def create_session(username: str) -> str:
     with connect(**CONN_CONFIG, dbname="info") as conn:
         with conn.cursor() as cur:
             cur.execute(
-                "INSERT INTO sessions (id, user_id, secret_hash) VALUES (%s, (SELECT id FROM users where USERNAME=%s), %s)",
+                """
+                WITH relevant_user AS (
+                    UPDATE users SET tokens_remaining = LEAST (
+                        1000,
+                        tokens_remaining + EXTRACT(EPOCH FROM (now() - last_seen)) - 1
+                    ), last_seen = NOW() WHERE username=%s RETURNING id
+                ) INSERT INTO sessions (id, user_id, secret_hash) SELECT %s, id, %s FROM relevant_user
+                """,
                 (
-                    id,
                     username,
+                    id,
                     secret_hash,
                 ),
             )
+
+            if cur.rowcount == 0:
+                return None
 
     return f"{id}.{secret}"
 
@@ -38,7 +52,7 @@ def validate_session(token: str) -> tuple[bool, str]:
     """Validates a session and finds the username associated with the session.
 
     Args:
-        token (str): _description_
+        token (str): The token to validate.
 
     Returns:
         tuple[bool, str]: Whether or not the session is valid and a username string if the session is valid. The string will be empty if the session is invalid.
