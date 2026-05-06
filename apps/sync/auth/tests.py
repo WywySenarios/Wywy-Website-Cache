@@ -1,7 +1,7 @@
 from unittest import TestCase
 from psycopg.conninfo import make_conninfo
 from psycopg_pool import ConnectionPool
-from psycopg.errors import CheckViolation, NotNullViolation
+from psycopg.errors import CheckViolation
 from constants import CONN_CONFIG
 from .sessions import create_session, validate_session
 from .creds import check_creds
