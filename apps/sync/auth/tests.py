@@ -91,8 +91,7 @@ class TestSessionCreation(TestCase):
                 self.assertLessEqual(cur.fetchall()[0][0], 1000.01)
 
     def testBadUserSessionCreation(self):
-        with self.assertRaises(NotNullViolation):
-            create_session("not_admin")
+        self.assertIsNone(create_session("not_admin"))
 
     def testNegativeSessionValidation(self):
         token = "xxxxxxxxxxxxxxxxxxxxxxxx.xxxxxxxxxxxxxxxxxxxxxxxx"
