@@ -216,6 +216,12 @@ LOGGING: Dict[str, Any] = {
             "filename": "/var/log/Wywy-Website/cache/database-debug.log",
             "formatter": "verbose",
         },
+        "auth": {
+            "level": "INFO",
+            "class": "logging.FileHandler",
+            "filename": "/var/log/Wywy-Website/cache/auth.log",
+            "formatter": "simple",
+        },
     },
     "root": {
         "handlers": ["console"],

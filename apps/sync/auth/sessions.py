@@ -1,7 +1,10 @@
-from psycopg import connect
+from psycopg import connect, Error
 from constants import CONN_CONFIG
 import secrets
 import hashlib
+from logging import getLogger
+
+logger = getLogger("auth")
 
 
 def create_session(username: str) -> str | None:
@@ -62,7 +65,7 @@ def validate_session(token: str) -> tuple[bool, str]:
     with connect(**CONN_CONFIG, dbname="info") as conn:
         with conn.cursor() as cur:
             cur.execute(
-                "SELECT sessions.secret_hash, users.username FROM sessions INNER JOIN users ON sessions.user_id = users.id WHERE sessions.id=%s",
+                "SELECT sessions.secret_hash, users.username, FLOOR(EXTRACT(EPOCH FROM (NOW() - sessions.last_seen))/60/60)::INT FROM sessions INNER JOIN users ON users.id=sessions.user_id WHERE sessions.id=%s",
                 (id,),
             )
 
@@ -71,9 +74,30 @@ def validate_session(token: str) -> tuple[bool, str]:
             if len(rows) != 1:
                 return (False, "")
 
-            if secrets.compare_digest(
+            valid = secrets.compare_digest(
                 rows[0][0], hashlib.sha256(secret.encode()).hexdigest()
-            ):
+            )
+
+            valid &= rows[0][2] < 1000
+
+            if rows[0][2] >= 1:
+                # try to update last_seen. It usually doesn't matter if this actually goes through.
+                try:
+                    cur.execute(
+                        """
+                        WITH session AS (
+                            UPDATE sessions SET last_seen=NOW() WHERE id=%s RETURNING user_id
+                        );
+                        
+                        UPDATE sessions SET last_seen=NOW() WHERE id=(SELECT user_id FROM session);
+                        """,
+                        (id,),
+                    )
+                except Error as e:
+                    logger.error(e, exc_info=True)
+
+            if valid:
+                logger.info("Session %s validated.", id)
                 return (True, rows[0][1])
             else:
                 return (False, "")

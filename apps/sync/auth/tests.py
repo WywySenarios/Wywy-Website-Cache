@@ -62,6 +62,17 @@ class TestSessionCreation(TestCase):
             "Invalid token (wrong secret) passed validation.",
         )
 
+        with self.pool.connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "UPDATE sessions SET last_seen=NOW() - INTERVAL '1000 hours' WHERE id=%s",
+                    (id,),
+                )
+
+        self.assertFalse(
+            validate_session(token)[0], "Invalid token (expired) passed validation."
+        )
+
     def testNoTokensSessionCreation(self):
         with self.pool.connection() as conn:
             with conn.cursor() as cur:
