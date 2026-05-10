@@ -5,7 +5,7 @@ services:
     environment:
       DEV: TRUE
       DEBUG: FALSE
-      TEST: TRUE
+      TEST: FALSE
 
   test:
     tty: true
