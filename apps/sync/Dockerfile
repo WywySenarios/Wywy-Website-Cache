@@ -10,7 +10,7 @@ RUN useradd -m -d /home/wywy -g Wywy-Website -u ${USER_ID} wywy
 # populate files
 COPY --chown=wywy:Wywy-Website ./apps/sync /home/wywy
 
-# prepare logging directory
+# prepare cache directory
 RUN mkdir -p /var/lib/Wywy-Website/cache
 RUN chown wywy /var/lib/Wywy-Website/cache
 RUN chmod 700 /var/lib/Wywy-Website/cache
