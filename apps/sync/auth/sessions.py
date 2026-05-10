@@ -60,7 +60,12 @@ def validate_session(token: str) -> tuple[bool, str]:
     Returns:
         tuple[bool, str]: Whether or not the session is valid and a username string if the session is valid. The string will be empty if the session is invalid.
     """
-    id, secret = token.split(".")
+    tokenized_token = token.split(".")
+
+    if len(tokenized_token) != 2:
+        return (False, "")
+
+    id, secret = tokenized_token
 
     with connect(**CONN_CONFIG, dbname="info") as conn:
         with conn.cursor() as cur:
