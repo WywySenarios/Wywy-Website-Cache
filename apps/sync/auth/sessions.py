@@ -87,9 +87,7 @@ def validate_session(token: str) -> tuple[bool, str]:
                         """
                         WITH session AS (
                             UPDATE sessions SET last_seen=NOW() WHERE id=%s RETURNING user_id
-                        );
-                        
-                        UPDATE sessions SET last_seen=NOW() WHERE id=(SELECT user_id FROM session);
+                        ) UPDATE users SET last_seen=NOW() WHERE id=(SELECT user_id FROM session);
                         """,
                         (id,),
                     )
