@@ -213,11 +213,13 @@ def handle_insert_request(request: HttpRequest) -> HttpResponse:
                         return handle_tags_insert_request(request)
                     case _:
                         return HttpResponseBadRequest(f"Bad target: {url_chunks[3]}")
+            table_type = "data"
             table: DictTableInfo = databases[database_name][table_name]
             entry_info = databases[database_name][table_name]
         case 5:  # .../main/[database_name]/[table_name]/descriptors/[descriptor_name]
             database_name = to_lower_snake_case(url_chunks[1])
             table_name = to_lower_snake_case(url_chunks[2])
+            table_type = "descriptors"
             if (
                 not database_name in databases
                 or not table_name in databases[database_name]
@@ -350,7 +352,7 @@ def handle_insert_request(request: HttpRequest) -> HttpResponse:
                 database_name,
                 target_table_name,
                 table_name,
-                "data",
+                table_type,
                 **decompose_entry(
                     entry,
                     entry_info["schema"],
