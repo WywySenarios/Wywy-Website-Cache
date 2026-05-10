@@ -29,6 +29,15 @@ class TestSessionCreation(TestCase):
         with self.pool.connection() as conn:
             with conn.cursor() as cur:
                 cur.execute("TRUNCATE sessions")
+                cur.execute("""
+                    INSERT INTO sessions (id, user_id, secret_hash)
+                    VALUES (
+                        'aaaaaaaaaaaaaaaaaaaaaaaa',
+                        (SELECT id FROM users WHERE username = 'admin'),
+                        encode(sha256('aaaaaaaaaaaaaaaaaaaaaaaa'::bytea), 'hex')
+                    )
+                    ON CONFLICT (id) DO NOTHING
+                    """)
 
     def testSessionCreationAndValidation(self):
         """Test whether or not session creation runs to completion and passes validation when intended."""
