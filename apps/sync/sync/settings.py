@@ -56,7 +56,7 @@ MIDDLEWARE = [
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
-    "sync.auth.AuthMiddleware",
+    "auth.middleware.AuthMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
@@ -215,6 +215,12 @@ LOGGING: Dict[str, Any] = {
             "class": "logging.FileHandler",
             "filename": "/var/log/Wywy-Website/cache/database-debug.log",
             "formatter": "verbose",
+        },
+        "auth": {
+            "level": "INFO",
+            "class": "logging.FileHandler",
+            "filename": "/var/log/Wywy-Website/cache/auth.log",
+            "formatter": "simple",
         },
     },
     "root": {

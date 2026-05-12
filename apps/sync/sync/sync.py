@@ -21,6 +21,8 @@ from database.db import (
 
 logger = logging.getLogger("sync")
 
+sql_receptionist_token: str | None = None
+
 
 def auto_sync(sync_event: threading.Event) -> None:
     # automatic sync interval in minutes
@@ -224,6 +226,7 @@ def sync() -> None:
                 endpoint, payload = data
                 response = None
 
+                global sql_receptionist_token  # suppress intellisense "potentially unbound variable"
                 # correct the foreign key to the master database's key ids. If those key IDs are not yet available, abort.
                 try:
                     # @TODO move logic to JOIN queries
@@ -262,21 +265,34 @@ def sync() -> None:
                         case _:
                             pass
 
-                    with open("/run/secrets/admin", "r") as f:
-                        response = requests.post(
-                            endpoint,
-                            timeout=5,
-                            headers={"Origin": environ["CACHE_URL"]},
-                            cookies={"username": "admin", "password": f.read()},
-                            json=payload,
-                        )
-                        response.raise_for_status()
+                    # lazily load credentials. Remember that syncing doesn't need to happen in one shot, so there does not need to be re-try logic.
+                    if sql_receptionist_token is None:
+                        with open("/run/secrets/admin", "r") as f:
+                            auth_response = requests.post(
+                                f"{environ["DATABASE_URL"]}/auth",
+                                timeout=5,
+                                headers={"Origin": environ["CACHE_URL"]},
+                                json={"username": "admin", "password": f.read()},
+                            )
 
-                        remote_id = response.text
+                            auth_response.raise_for_status()
 
-                        if not remote_id:
-                            raise ValueError("remote_id is not valid.")
-                        status = "updated"
+                            sql_receptionist_token = auth_response.cookies["session"]
+
+                    response = requests.post(
+                        endpoint,
+                        timeout=5,
+                        headers={"Origin": environ["CACHE_URL"]},
+                        cookies={"session": sql_receptionist_token},
+                        json=payload,
+                    )
+                    response.raise_for_status()
+
+                    remote_id = response.text
+
+                    if not remote_id:
+                        raise ValueError("remote_id is not valid.")
+                    status = "updated"
                 except RuntimeError as e:
                     logger.warning(
                         f"Sync failed: {e} . Reason: {"None" if response is None else response.text}",
@@ -288,6 +304,9 @@ def sync() -> None:
                         f"Sync failed: {e} . Reason: {"None" if response is None else response.text}",
                         exc_info=False,
                     )
+
+                    if response is not None and response.status_code == 401:
+                        sql_receptionist_token = None
                     status = "failed"
                 except ValueError as e:
                     logger.critical(
