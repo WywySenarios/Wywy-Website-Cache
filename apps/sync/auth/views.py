@@ -12,7 +12,7 @@ from typing import cast, Any
 import json
 
 
-def index(request: HttpRequest) -> HttpResponse:
+def login(request: HttpRequest) -> HttpResponse:
     # only allow POST requests with JSON payload
     if request.method != "POST":
         return HttpResponseNotAllowed(["POST"])
