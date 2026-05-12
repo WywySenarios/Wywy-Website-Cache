@@ -6,7 +6,7 @@ from django.http import (
     HttpResponseNotAllowed,
 )
 from .creds import check_creds
-from .sessions import create_session
+from .sessions import create_session, validate_session
 from typing import cast, Any
 
 import json
@@ -46,3 +46,21 @@ def index(request: HttpRequest) -> HttpResponse:
             return HttpResponseServerError()
     else:
         return HttpResponse("Login failed.", status=401)
+
+
+def logout(request: HttpRequest) -> HttpResponse:
+    response = HttpResponse()
+    response.delete_cookie("token")
+    return response
+
+
+def whoami(request: HttpRequest) -> HttpResponse:
+    if "token" not in request.COOKIES:
+        return HttpResponse("No token provided.", status=401)
+
+    valid, username = validate_session(request.COOKIES["token"])
+
+    if valid:
+        return HttpResponse(username)
+    else:
+        return HttpResponse("Invalid or expired token.", status=401)
