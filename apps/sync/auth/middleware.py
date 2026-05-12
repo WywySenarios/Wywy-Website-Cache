@@ -6,6 +6,7 @@ from django.http import (
 from typing import Callable
 from .sessions import validate_session
 from logging import getLogger
+from os import environ
 
 logger = getLogger("auth")
 
@@ -35,4 +36,14 @@ class AuthMiddleware:
         if username != "admin":
             return HttpResponseForbidden("Insufficient permissions.")
 
-        return self.get_response(request)
+        response = self.get_response(request)
+        response.set_cookie(
+            "token",
+            request.COOKIES["token"],
+            secure=True,
+            httponly=True,
+            samesite="Lax",
+            max_age=int(environ["AUTH_COOKIE_MAX_AGE"]),
+        )
+
+        return response

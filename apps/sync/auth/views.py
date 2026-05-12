@@ -8,6 +8,7 @@ from django.http import (
 from .creds import check_creds
 from .sessions import create_session, validate_session
 from typing import cast, Any
+from os import environ
 
 import json
 
@@ -39,7 +40,12 @@ def login(request: HttpRequest) -> HttpResponse:
         if token is not None:
             response = HttpResponse("Login successful!")
             response.set_cookie(
-                "token", token, secure=True, httponly=True, samesite="Lax"
+                "token",
+                token,
+                secure=True,
+                httponly=True,
+                samesite="Lax",
+                max_age=int(environ["AUTH_COOKIE_MAX_AGE"]),
             )
             return response
         else:
