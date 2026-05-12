@@ -25,6 +25,6 @@ urlpatterns: list[URLPattern | URLResolver] = [
     path("cache/", include("cache.urls")),
     path("tags", include("tags.urls")),
     path("refresh", include("refresh.urls")),
-    path("auth", include("auth.urls")),
+    path("auth/", include("auth.urls")),
     path("sync", request_sync),
 ]
