@@ -96,21 +96,6 @@ DEFAULT_VALUES: dict[Datatype, Any] = {
     "geodetic point": "POINT EMPTY",
 }
 
-REQUIRES_QUOTATION: dict[Datatype, bool] = {
-    "int": False,
-    "integer": False,
-    "float": False,
-    "number": False,
-    "string": True,
-    "str": True,
-    "text": True,
-    "bool": False,
-    "boolean": False,
-    "date": True,
-    "time": True,
-    "timestamp": True,
-}
-
 # convert all the table schemas into dictionaries with snake_case
 databases: dict[str, DictDatabaseInfo] = {
     to_lower_snake_case(db["dbname"]): {
