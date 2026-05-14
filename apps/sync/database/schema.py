@@ -80,22 +80,6 @@ DATATYPE_CHECK: dict[Datatype, Callable[[Any], bool]] = {
     "geodetic point": is_geodetic_point,
 }
 
-DEFAULT_VALUES: dict[Datatype, Any] = {
-    "int": 0,
-    "integer": 0,
-    "float": 0.0,
-    "number": 0.0,
-    "string": "",
-    "str": "",
-    "text": "",
-    "bool": False,
-    "boolean": False,
-    "date": "0001-01-01",
-    "time": "01:00:00",
-    "timestamp": "0001-01-01T01:00:00",
-    "geodetic point": "POINT EMPTY",
-}
-
 # convert all the table schemas into dictionaries with snake_case
 databases: dict[str, DictDatabaseInfo] = {
     to_lower_snake_case(db["dbname"]): {
