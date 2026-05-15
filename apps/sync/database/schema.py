@@ -78,6 +78,9 @@ DATATYPE_CHECK: dict[Datatype, Callable[[Any], bool]] = {
     # @TODO stricter enum checking
     "enum": lambda x: x is not None,
     "geodetic point": is_geodetic_point,
+    "pointer": lambda x: isinstance(x, int),
+    "polymorphic pointer": lambda x: isinstance(x, int),
+    "polypointer": lambda x: isinstance(x, int),
 }
 
 # convert all the table schemas into dictionaries with snake_case
