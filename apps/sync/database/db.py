@@ -118,6 +118,9 @@ def construct_select_all_query(
                         f"{column_name_prefix}{column_name}_altitude_accuracy"
                     )
                 )
+            case "polymorphic pointer" | "polypointer":
+                values.append(sql.Identifier(f"{column_name_prefix}{column_name}"))
+                values.append(sql.Identifier(f"{column_name_prefix}{column_name}_type"))
             case _:
                 values.append(sql.Identifier(f"{column_name_prefix}{column_name}"))
 
