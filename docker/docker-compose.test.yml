@@ -6,6 +6,7 @@ services:
       DEV: TRUE
       DEBUG: FALSE
       TEST: FALSE
+      ENVIRONMENT: test
 
   test:
     tty: true
@@ -30,6 +31,7 @@ services:
       DEV: TRUE
       DEBUG: FALSE
       TEST: TRUE
+      ENVIRONMENT: test
     secrets:
       - admin
     networks:
