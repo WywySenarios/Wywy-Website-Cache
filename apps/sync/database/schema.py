@@ -1,6 +1,7 @@
 # datatype checking functions
 import logging
 import re
+from os import environ
 from utils import to_lower_snake_case
 from constants import CONN_CONFIG
 from wywy_website_types import (
@@ -78,43 +79,19 @@ DATATYPE_CHECK: dict[Datatype, Callable[[Any], bool]] = {
     # @TODO stricter enum checking
     "enum": lambda x: x is not None,
     "geodetic point": is_geodetic_point,
-}
-
-DEFAULT_VALUES: dict[Datatype, Any] = {
-    "int": 0,
-    "integer": 0,
-    "float": 0.0,
-    "number": 0.0,
-    "string": "",
-    "str": "",
-    "text": "",
-    "bool": False,
-    "boolean": False,
-    "date": "0001-01-01",
-    "time": "01:00:00",
-    "timestamp": "0001-01-01T01:00:00",
-    "geodetic point": "POINT EMPTY",
-}
-
-REQUIRES_QUOTATION: dict[Datatype, bool] = {
-    "int": False,
-    "integer": False,
-    "float": False,
-    "number": False,
-    "string": True,
-    "str": True,
-    "text": True,
-    "bool": False,
-    "boolean": False,
-    "date": True,
-    "time": True,
-    "timestamp": True,
+    "pointer": lambda x: isinstance(x, int),
+    "polymorphic pointer": lambda x: isinstance(x, int),
+    "polypointer": lambda x: isinstance(x, int),
 }
 
 # convert all the table schemas into dictionaries with snake_case
-databases: dict[str, DictDatabaseInfo] = {
-    to_lower_snake_case(db["dbname"]): {
-        to_lower_snake_case(table["tableName"]): {
+databases: dict[str, DictDatabaseInfo] = {}
+for db in CONFIG["data"]:
+    db_name = to_lower_snake_case(db["dbname"])
+    tables: dict[str, DictTableInfo] = {}
+    for table in db["tables"]:
+        table_name = to_lower_snake_case(table["tableName"])
+        tables[table_name] = {
             **table,
             "schema": {
                 to_lower_snake_case(column_schema["name"]): column_schema
@@ -135,10 +112,16 @@ databases: dict[str, DictDatabaseInfo] = {
                 else {}
             ),
         }
-        for table in db["tables"]
-    }
-    for db in CONFIG["data"]
-}
+    if environ.get("ENVIRONMENT") == "test":
+        tables["pointed"] = {
+            "tableName": "pointed",
+            "entrytype": "form",
+            "read": True,
+            "write": True,
+            "comments": False,
+            "schema": {},
+        }
+    databases[db_name] = tables
 
 
 def get_all_tags(database_name: str, parent_table_name: str) -> list[int]:
@@ -202,6 +185,7 @@ def check_entry(
 
     if not check_item(
         entry,
+        database_name,
         entry_info["schema"],
         primary_tag=entry_info.get("tagging", False),
         id_column_name="id",
@@ -214,6 +198,7 @@ def check_entry(
 
 def check_item(
     data: Entry,
+    database_name: str,
     schema: DictSchema,
     require_inclusion: bool = True,
     primary_tag: bool = False,
@@ -225,6 +210,7 @@ def check_item(
 
     Args:
         data (dict): The data to check.
+        database_name (str): The name of the database to validate polymorphic pointers against.
         schema (dict): The schema to check against.
         require_inclusion (bool, optional): Whether or not each non-optional column must be present in the item for it to be valid. Defaults to True.
         primary_tag (bool, optional): Whether or not to expect the primary_tag column. Defaults to False.
@@ -283,22 +269,60 @@ def check_item(
             )
             return False
 
-        # geodetic point sub-columns
-        for sub_column_suffix in (
-            "_latlong_accuracy",
-            "_altitude",
-            "_altitude_accuracy",
-        ):
-            sub_column_name = column_name + sub_column_suffix
+        match (column_info["datatype"]):
+            case "geodetic point":
+                # geodetic point sub-columns
+                for sub_column_suffix in (
+                    "_latlong_accuracy",
+                    "_altitude",
+                    "_altitude_accuracy",
+                ):
+                    sub_column_name = column_name + sub_column_suffix
 
-            if sub_column_name in data:
-                if not DATATYPE_CHECK["float"](data[sub_column_name]):
-                    logger.debug(
-                        f"Bad datatype for column {column_name}. Expected a float."
-                    )
+                    if sub_column_name in data:
+                        if not DATATYPE_CHECK["float"](data[sub_column_name]):
+                            logger.debug(
+                                f"Bad datatype for column {column_name}. Expected a float."
+                            )
+                            return False
+
+                        unchecked_columns.remove(sub_column_name)
+            case "polymorphic pointer" | "polypointer":
+                # _type subcolumn
+                subcolumn_name = column_name + "_type"
+                if subcolumn_name not in data:
+                    logger.debug(f"Missing type subcolumn for {column_name}.")
                     return False
 
-                unchecked_columns.remove(sub_column_name)
+                pointed_table = data[subcolumn_name]
+                if not DATATYPE_CHECK["str"](pointed_table):
+                    logger.debug(
+                        f"Bad datatype for subcolumn {subcolumn_name}. Expected a string."
+                    )
+
+                references = column_info.get("references")
+                if references is not None:
+                    if isinstance(references, str):
+                        references = [references]
+                    allowed_tables: set[str] = set()
+                    for ref in references:
+                        allowed_tables.add(ref)
+                        allowed_tables.add(to_lower_snake_case(ref))
+                    if pointed_table not in allowed_tables and to_lower_snake_case(pointed_table) not in allowed_tables:
+                        logger.debug(
+                            f"Polymorphic pointer {column_name} points to table {pointed_table}, which is not in the allowed references."
+                        )
+                        return False
+                else:
+                    if pointed_table not in databases.get(database_name, {}):
+                        logger.debug(
+                            f"Polymorphic pointer {column_name} points to table {pointed_table}, which does not exist in database {database_name}."
+                        )
+                        return False
+                unchecked_columns.remove(subcolumn_name)
+
+            case _:
+                pass
 
         # comments
         if column_info.get("comments", False) is True:

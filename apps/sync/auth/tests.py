@@ -143,7 +143,7 @@ class TestSessionCreation(TestCase):
             self.assertTrue(check_creds("admin", admin_password))
 
 
-ENDPOINT = "/auth"  # adjust if your URLconf differs
+ENDPOINT = "/auth/login"  # adjust if your URLconf differs
 VALID_USER = "admin"
 with open("/run/secrets/admin", "r") as f:
     VALID_PASSWORD = f.read()

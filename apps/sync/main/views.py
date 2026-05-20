@@ -321,6 +321,7 @@ def handle_insert_request(request: HttpRequest) -> HttpResponse:
 
                         if not check_item(
                             cast(dict[str, Any], descriptor_entry),
+                            database_name,
                             table["descriptors"][descriptor_name]["schema"],
                         ):
                             return HttpResponseBadRequest(

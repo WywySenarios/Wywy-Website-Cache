@@ -118,6 +118,9 @@ def construct_select_all_query(
                         f"{column_name_prefix}{column_name}_altitude_accuracy"
                     )
                 )
+            case "polymorphic pointer" | "polypointer":
+                values.append(sql.Identifier(f"{column_name_prefix}{column_name}"))
+                values.append(sql.Identifier(f"{column_name_prefix}{column_name}_type"))
             case _:
                 values.append(sql.Identifier(f"{column_name_prefix}{column_name}"))
 
@@ -192,6 +195,12 @@ def decompose_entry(
             values_shapes.append(sql.SQL("NULL"))
         else:
             raise ValueError(f"Column name {column_name} is not within the schema.")
+
+        if schema[column_name].get("datatype") in ("polymorphic pointer", "polypointer"):
+            subcolumn_name = f"{column_name}_type"
+            columns.append(subcolumn_name)
+            values.append(item.get(subcolumn_name, None))
+            values_shapes.append(sql.Placeholder())
 
         if schema[column_name].get("comments", False):
             columns.append(f"{column_name}_comments")
