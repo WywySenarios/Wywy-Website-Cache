@@ -196,6 +196,12 @@ def decompose_entry(
         else:
             raise ValueError(f"Column name {column_name} is not within the schema.")
 
+        if schema[column_name].get("datatype") in ("polymorphic pointer", "polypointer"):
+            subcolumn_name = f"{column_name}_type"
+            columns.append(subcolumn_name)
+            values.append(item.get(subcolumn_name, None))
+            values_shapes.append(sql.Placeholder())
+
         if schema[column_name].get("comments", False):
             columns.append(f"{column_name}_comments")
             values.append(item.get(f"{column_name}_comments", None))

@@ -300,11 +300,25 @@ def check_item(
                         f"Bad datatype for subcolumn {subcolumn_name}. Expected a string."
                     )
 
-                if pointed_table not in databases.get(database_name, {}):
-                    logger.debug(
-                        f"Polymorphic pointer {column_name} points to table {pointed_table}, which does not exist in database {database_name}."
-                    )
-                    return False
+                references = column_info.get("references")
+                if references is not None:
+                    if isinstance(references, str):
+                        references = [references]
+                    allowed_tables: set[str] = set()
+                    for ref in references:
+                        allowed_tables.add(ref)
+                        allowed_tables.add(to_lower_snake_case(ref))
+                    if pointed_table not in allowed_tables and to_lower_snake_case(pointed_table) not in allowed_tables:
+                        logger.debug(
+                            f"Polymorphic pointer {column_name} points to table {pointed_table}, which is not in the allowed references."
+                        )
+                        return False
+                else:
+                    if pointed_table not in databases.get(database_name, {}):
+                        logger.debug(
+                            f"Polymorphic pointer {column_name} points to table {pointed_table}, which does not exist in database {database_name}."
+                        )
+                        return False
                 unchecked_columns.remove(subcolumn_name)
 
             case _:
