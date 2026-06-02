@@ -224,17 +224,17 @@ def check_item(
 
     # primary_tag
     if primary_tag:
-        if not "primary_tag" in unchecked_columns:
+        if "primary_tag" in unchecked_columns:
+            if not DATATYPE_CHECK["int"](data["primary_tag"]):
+                logger.debug(
+                    f"Bad datatype for the primary tag column. Expected an integer."
+                )
+                return False
+            unchecked_columns.remove("primary_tag")
+        elif require_inclusion:
             logger.debug("Primary tag column not found inside the data.")
             return False
-
-        if not DATATYPE_CHECK["int"](data["primary_tag"]):
-            logger.debug(
-                f"Bad datatype for the primary tag column. Expected an integer."
-            )
-            return False
-
-        unchecked_columns.remove("primary_tag")
+        # if require_inclusion is False, missing primary_tag is tolerated (e.g. timer cache)
 
     # id column
     if id_column_name is not None and id_column_name in unchecked_columns:
