@@ -4,7 +4,7 @@ from os import environ
 from string import Template
 from psycopg import connect
 
-CACHE_URL = f"http://{environ["SYNC_HOST"]}:{environ["SYNC_PORT"]}"
+CACHE_URL = f"http://{environ['SYNC_HOST']}:{environ['SYNC_PORT']}"
 DATA_ENDPOINT: Template = Template(
     CACHE_URL + "/main/${database_name}/${table_name}/data"
 )
@@ -24,8 +24,8 @@ GENERIC_REQUEST_PARAMS: dict[str, Any] = {"headers": {}, "cookies": AUTH_COOKIES
 CONN_CONFIG: dict[Literal["user", "password", "host", "port"], str | int] = {
     "user": environ.get("POSTGRES_USER", "postgres"),
     "password": environ.get("POSTGRES_PASSWORD", "password"),
-    "host": environ.get("DATABASE_HOST", "postgres"),
-    "port": environ.get("POSTGRES_PORT", 5433),
+    "host": environ.get("DATABASE_HOST", "database"),
+    "port": environ.get("POSTGRES_PORT", 5432),
 }
 
 if environ.get("TEST", "false").lower() == "true":

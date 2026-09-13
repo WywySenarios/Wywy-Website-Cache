@@ -8,7 +8,7 @@ RUN groupadd -g 2523 Wywy-Website
 RUN useradd -m -d /home/wywy -g Wywy-Website -u ${USER_ID} wywy
 
 # populate files via volume
-COPY --chown=tests:Wywy-Website /apps/sync/requirements.txt /tmp/requirements.txt
+COPY --chown=wywy:Wywy-Website /apps/sync/requirements.txt /tmp/requirements.txt
 
 # prepare cache directory
 RUN mkdir -p /var/lib/Wywy-Website/cache
@@ -31,4 +31,4 @@ RUN pip install -r /tmp/requirements.txt
 # enter as non-root user
 USER wywy
 
-CMD ["python", "manage.py", "test"]
+CMD ["python", "manage.py", "test", "--noinput"]

@@ -31,7 +31,7 @@ DEV: bool = environ.get("DEV", "false").lower() == "true"
 DEBUG = environ.get("DEBUG", "false").lower() == "true"
 
 ALLOWED_HOSTS = [
-    f".{environ["MAIN_DOMAIN"]}",
+    f".{environ['MAIN_DOMAIN']}",
 ]
 
 if DEV:
@@ -134,8 +134,8 @@ DATABASES: Dict[str, Any] = {
         "NAME": "wywywebsite",
         "USER": os.environ.get("POSTGRES_USER", "postgres"),
         "PASSWORD": os.environ.get("POSTGRES_PASSWORD", "password"),
-        "HOST": environ.get("DATABASE_HOST", "postgres"),
-        "PORT": os.environ.get("POSTGRES_PORT", "5433"),
+        "HOST": environ.get("DATABASE_HOST", "database"),
+        "PORT": os.environ.get("POSTGRES_PORT", "5432"),
         "OPTIONS": {
             "connect_timeout": 5,
         },
@@ -145,8 +145,8 @@ DATABASES: Dict[str, Any] = {
         "NAME": "info",
         "USER": os.environ.get("POSTGRES_USER", "postgres"),
         "PASSWORD": os.environ.get("POSTGRES_PASSWORD", "password"),
-        "HOST": "wywywebsite-cache_database",
-        "PORT": os.environ.get("POSTGRES_PORT", "5433"),
+        "HOST": environ.get("DATABASE_HOST", "database"),
+        "PORT": os.environ.get("POSTGRES_PORT", "5432"),
         "OPTIONS": {
             "connect_timeout": 5,
         },
@@ -252,7 +252,10 @@ LOGGING: Dict[str, Any] = {
 }
 
 # enable auto-sync
-if environ.get("TEST", "false").lower() != "true":
+if (
+    environ.get("TEST", "false").lower() != "true"
+    and environ.get("AUTOSYNC_ENABLED", "true").lower() == "true"
+):
     enable_autosync()
 
 

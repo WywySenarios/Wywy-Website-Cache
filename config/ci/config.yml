@@ -1,0 +1,224 @@
+# Webpage
+websiteTitle: "Eric's Website"
+websiteIcon: "/favicon.svg"
+
+# Postgres database
+data:
+  - dbname: WywyWebsite
+    tables:
+      - tableName: location
+        read: true
+        write: true
+        entrytype: none
+        schema:
+          - name: latitude
+            datatype: float
+            entrytype: none
+          - name: longitude
+            datatype: float
+            entrytype: none
+          - name: accuracy
+            datatype: float
+            entrytype: none
+            optional: true
+          - name: altitude
+            datatype: float
+            entrytype: none
+            optional: true
+          - name: altitude_accuracy
+            datatype: float
+            entrytype: none
+            optional: true
+          - name: speed
+            datatype: float
+            entrytype: none
+            optional: true
+          - name: heading
+            datatype: float
+            entrytype: none
+            optional: true
+          - name: timestamp
+            datatype: timestamp
+            entrytype: none
+      - tableName: events
+        read: true
+        write: true
+        entrytype: timer
+        tagging: true
+        schema:
+          - name: Start Time
+            datatype: timestamp
+            entrytype: calendar time
+            record_on: start
+          - name: End time
+            datatype: timestamp
+            entrytype: calendar time
+            record_on: split
+          - name: Start Location
+            datatype: geodetic point
+            entrytype: none
+            record_on: start
+            optional: true
+          - name: End Location
+            datatype: geodetic point
+            entrytype: none
+            record_on: split
+            optional: true
+        descriptors:
+          - name: Sleep
+            schema:
+              - name: Sleep Quality
+                datatype: int
+                entrytype: linearSlider
+                comments: true
+                description: How would you rate you sleep quality?
+              - name: Sleep Behaviour
+                datatype: int
+                entrytype: linearSlider
+                comments: true
+                description: How well did you actions today facilitate a good night's rest? The importance is less on how good you sleep and moreso about how good the actions are.
+            metrics:
+              - name: Sleep Quality
+                data: [Sleep Quality]
+              - name: Sleep Behaviour
+                data: [Sleep Behaviour]
+        metrics:
+          - name: Start Time
+            datatype: Date
+            data: [Start Time]
+          - name: End Time
+            datatype: Date
+            data: [End Time]
+          - name: Duration
+            datatype: Date
+            function: subtraction
+            data: [End Time, Start Time]
+          - name: Event Primary Tag
+            data: [Primary Tag]
+
+      - tableName: daily
+        read: true
+        write: true
+        entrytype: form
+        schema:
+          # Please note that the datatype is what the PostgreSQL database will recognize (e.g. Typescript has no way of differentiating an integer from a float).
+          - name: Date
+            parser: date # the datatype that the parser should attempt to cast to
+            datatype: timestamp
+            entrytype: calendar time
+            description: The estimate of when you gained conciousness at the start of this (sleep-based) day.
+          - name: Work Ethic
+            datatype: int
+            entrytype: linearSlider
+            comments: true
+            description: How much drive did you have to do work today?
+          - name: Time Efficiency
+            datatype: int
+            entrytype: linearSlider
+            comments: true
+            description: How much % of time did you productivity exploit to achieve your (any type of) goals today? Compare to the feasible maximum.
+          - name: Happiness
+            datatype: int
+            entrytype: linearSlider
+            comments: true
+            description: What % are you feeling today?
+          - name: Awareness
+            datatype: int
+            entrytype: linearSlider
+            comments: true
+            description: How alert are you today? Tired? Focused?
+        metrics:
+          - name: Date
+            data: [Date]
+          - name: Work Ethic
+            data: [Work Ethic]
+          - name: Time Efficiency
+            data: [Time Efficiency]
+          - name: Happiness
+            data: [Happiness]
+          - name: Awareness
+            data: [Awareness]
+
+      - tableName: Thought Journal
+        read: true
+        write: true
+        tagging: true
+        entrytype: form
+        schema:
+          - name: Thought name
+            datatype: text
+            entrytype: textbox
+          - name: Thought
+            datatype: text
+            entrytype: textbox
+        descriptors:
+          - name: Related Item
+            schema:
+              - name: Related Item
+                datatype: polypointer
+                entrytype: polypointer
+                references:
+                  - Events Sleep Descriptors
+                  - Events
+                  - Daily
+          # @TODO files
+        metrics: []
+
+    dashboard:
+      - name: Events
+        type: Shallow Treemap
+        selector: Step Within
+        selector args: [now-86400000, now] # within 24h
+        metrics: [Start Time, Event Primary Tag, Duration] # @TODO tag group
+      - name: Events Breakdown
+        type: Waterfall Chart
+        selector: Step Within
+        selector args: [now-86400000, now] # within 24h
+        metrics: [Start Time, Start Time, End Time, Event Primary Tag]
+        datatype: timestamp
+        invertAxes: true
+      - name: Score
+        type: Gauge Chart
+        selector: Closest Step
+        selector args: [now]
+        function: mean
+        metrics:
+          - Date
+          - Work Ethic
+          - Time Efficiency
+          - Happiness
+      - name: Work Ethic
+        type: Gauge Chart
+        selector: Closest Step
+        selector args: [now]
+        metrics: [Date, Work Ethic]
+        min: 0
+        max: 100
+      - name: Time Efficiency
+        type: Gauge Chart
+        selector: Closest Step
+        selector args: [now]
+        metrics: [Date, Time Efficiency]
+        min: 0
+        max: 100
+      - name: Happiness
+        type: Gauge Chart
+        selector: Closest Step
+        selector args: [now]
+        metrics: [Date, Happiness]
+        min: 0
+        max: 100
+      - name: Awareness
+        type: Gauge Chart
+        selector: Closest Step
+        selector args: [now]
+        metrics: [Date, Awareness]
+        min: 0
+        max: 100
+
+# data pipelines
+pipelines:
+  - target:
+      database_name: WywyWebsite
+      table_name: location
+    type: location
